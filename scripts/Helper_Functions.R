@@ -128,17 +128,22 @@ forbesMatrix<-function(x,corrected)	{
 
 #### Extract sites of species #
 
-getSites2 <- function(species, PA){
+getSites2 <- function(species, PA, type = "count"){
   cS <- PA %>% filter(rownames(.) %in% species)
   cS <- cS %>% select(which(colSums(cS) > 0))
-  cS <- colSums(cS)#/nrow(cS)
-  return(cS)
+  if(type == "count"){
+    cS <- colSums(cS)
+    return(cS)
+  }else if(type == "percent"){
+    cS <- colSums(cS)/nrow(cS)
+    return(cS)
+  }else{message("Type must be 'count' or 'percent'")}
 }
 
-getSites <- function(clusters, PA){
+getSites <- function(clusters, PA, type = "count"){
   out <- list()
   for(i in seq_along(clusters)){
-    out[[i]] <- getSites2(clusters[[i]], PA)
+    out[[i]] <- getSites2(clusters[[i]], PA, type)
   }
   return(out)
 }
