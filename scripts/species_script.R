@@ -15,7 +15,8 @@ occurrences <- occurrences %>% select(scientificName, vernacularName,
                                       individualCount)
 
 ## Species data ####
-sppDat <- occurrences %>% select(scientificName, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
+sppDat <- occurrences %>% select(scientificName, vernacularName, kingdom, phylum, 
+                                 class, order, family, genus, species) %>% unique()
 
 # Occurrence in ice-free areas (Ice-free patches as sites).
 occ <- read_csv("data/Species/Spp_iceFree_occ.csv")
@@ -59,8 +60,9 @@ cel <- dist2edgelist(cpairs, t(clustm))
 
 cg <- cel %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.98, na.rm = T)) %>% graph_from_data_frame(directed = F)
 V(cg)$decade <- V(cg)$name %>% word(1,1, sep = "_")
-plot(cg, vertex.label = NA, vertex.size = 4, vertex.color = cmod$membership)
 cmod <- cluster_fast_greedy(cg)
+plot(cg, vertex.label = NA, vertex.size = 4, vertex.color = cmod$membership)
+
 cgroups <- data.frame(cluster = cmod$names, group = cmod$membership)
 cgroups <- merge(cord, cgroups) %>% mutate(cID = as.numeric(cID))
 ## Characterise sites by assemblage ####
@@ -100,11 +102,26 @@ IFA$grp.percent <- lapply(cID, function(x) cgroups$group[which(cgroups$cluster %
   purrr::map(unique) %>% sapply(paste0, collapse = ";")
 
 IFA <- merge(IFA, occ %>% select(OBJECTID, ACBR_Name) %>% unique(), by.x = "IFA", by.y = "OBJECTID", all.x = TRUE)
+
 ## Species allocation in cluster groups #####
 species <- melt(clustm %>% mutate(species = rownames(clustm))) %>% 
   filter(value > 0) %>% 
   merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
 
-sppDat <- merge(sppDat, species, by.x = "scientificName", by.y = "species", all = TRUE)
+sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE)
+# Calculate IFA habitats ####
+
+hab_IFA <- read_csv("data/Habitats/Habitat_IFA_join.csv")
+hab_IFA$Inv_Distance <- 1/(hab_IFA$Distance+1)
+
+habifa <- dcast(hab_IFA, OBJECTID_1~n8_W, value.var = "Inv_Distance", fun.aggregate = sum) %>% namerows()
+habifa$dom_habitat <- apply(habifa, 1, which.max)
+
+master <- merge(habifa %>% select(dom_habitat), IFA, by.x =0, by.y = "IFA")
+
+masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
+ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + geom_alluvium(aes(fill = decade), width = 1/12) + geom_stratum(width = 1/12, fill = "gray", color = "white") + geom_label(stat = "stratum", infer.label= TRUE) + scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + scale_fill_brewer(type = "qual", palette = "Set1")
+#####
+#####
 #####
 #####

@@ -23,7 +23,7 @@ habDat <- read_csv("data/Habitats/Hab8_ACBR_join.csv")
 
 x <- princomp(envpred_norm[,2:15] %>% select(-sumtemp, -rugos, -rad, -melt, -modT_0315, -DDminus5))
 
-autoplot(x, data = habDat, col = "n8U", 
+autoplot(x, data = habDat, col = "n8_W", 
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4)
 
