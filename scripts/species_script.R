@@ -1,7 +1,8 @@
 library(tidyverse)
 library(igraph)
+library(ggalluvial)
 library(reshape2)
-source('C:/Users/Aniko/Desktop/Antarctica/scripts/Helper_Functions.R')
+source('./scripts/Helper_Functions.R')
 
 # Load data ####
 occurrences <- read_csv("data/Species/Ant_Terr_Bio_Data_FINAL.csv")
@@ -23,23 +24,26 @@ occ <- read_csv("data/Species/Spp_iceFree_occ.csv")
 
 PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, year) %>% 
   filter(year > 1960 & OBJECTID > 0)
+PA0 <- PA0[-grep(" cf. " ,PA0$scientific),]
+PA0 <- PA0[-grep(" sp." ,PA0$scientific),]
 
 Abund <- PA0 %>% split(.$year %/% 10) %>% 
   lapply(reshape2::dcast, scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>%
   lapply(namerows) %>%
   purrr::map(clean.empty, mincol = 5, minrow = 2)
 
-PA <- tobinary(Abund) %>% lapply(clean.empty, mincol = 2, minrow = 2)
+PA <- tobinary(Abund) %>% lapply(clean.empty, mincol = 5, minrow = 5)
 
 ## pairs analysis on assemblages ####
 pairs <- lapply(PA, simpairs)
 el <- map2(pairs, PA, dist2edgelist) #%>% bind_rows(.id = "decade")
 
-g <- el %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.98, na.rm = T)) %>% 
+g <- el %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.90, na.rm = T)) %>% 
   #purrr::map(mutate, weight = Z.Score) %>%
   purrr::map(graph_from_data_frame, directed = F)
 
-mod <- purrr::map(g, cluster_fast_greedy)
+mod <- purrr::map(g, ~cluster_fast_greedy(., weights = E(.)$Z.Score))
+#modsp <- purrr::map(g, ~cluster_spinglass(., weights = E(.)$Z.Score))
 
 ## Assemblage clusters similarity analysis #####
 
@@ -58,13 +62,17 @@ ggplot(cord, aes(x = X1, y = X2, col = decade, label = cID)) + geom_point() + ge
 cpairs <- clustm %>% t() %>% simpairs()
 cel <- dist2edgelist(cpairs, t(clustm))
 
-cg <- cel %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.98, na.rm = T)) %>% graph_from_data_frame(directed = F)
+cg <- cel %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.84, na.rm = T)) %>% 
+  graph_from_data_frame(directed = F)
 V(cg)$decade <- V(cg)$name %>% word(1,1, sep = "_")
-cmod <- cluster_fast_greedy(cg)
+cmod <- cluster_fast_greedy(cg, weights = E(cg)$Z.Score)
 plot(cg, vertex.label = NA, vertex.size = 4, vertex.color = cmod$membership)
 
 cgroups <- data.frame(cluster = cmod$names, group = cmod$membership)
 cgroups <- merge(cord, cgroups) %>% mutate(cID = as.numeric(cID))
+
+ggplot(cgroups, aes(x = X1, y = X2, col = as.factor(group), label = decade)) + geom_point() + geom_text(hjust = 0, vjust = 0)
+
 ## Characterise sites by assemblage ####
 
 s_count <- map2(mod, PA, getSites, type = "count")
@@ -75,14 +83,14 @@ assemb1 <- purrr::map(assemb1, function(x) x %>% setNames(paste("X", 1:ncol(x), 
 assemb1 <- assemb1 %>% purrr::map(~apply(.,1, function(x) which(x == max(x, na.rm = TRUE)) %>% 
                                 data.frame()) %>% 
                                   bind_rows(.id = "IFA")) %>% bind_rows(.id = "decade")
-asmb1 <- assemb1 %>% group_by(decade, IFA) %>% summarise(count = paste0(., collapse = ";"))
+asmb1 <- assemb1 %>% group_by(decade, IFA) %>% summarise(count = paste0(sort(.), collapse = ";"))
 
 assemb2 <- lapply(s_prcnt, lapply, data.frame) %>% purrr::map(~reduce(., multimerge))
 assemb2 <- purrr::map(assemb2, function(x) x %>% setNames(paste("X", 1:ncol(x), sep = "")))
 assemb2 <- assemb2 %>% purrr::map(~apply(.,1, function(x) which(x == max(x, na.rm = TRUE)) %>% 
                                            data.frame()) %>% 
                                     bind_rows(.id = "IFA")) %>% bind_rows(.id = "decade")
-asmb2 <- assemb2 %>% group_by(decade, IFA) %>% summarise(percent = paste0(., collapse = ";"))
+asmb2 <- assemb2 %>% group_by(decade, IFA) %>% summarise(percent = paste0(sort(.), collapse = ";"))
 assemblages <- merge(asmb1, asmb2, all = TRUE)
 
 
@@ -96,10 +104,10 @@ IFA <- merge(ord, assemblages, all = TRUE) %>% mutate(IFA = as.numeric(IFA))
 
 cID <- map2(IFA$decade, IFA$count %>% strsplit(";"), paste, sep = "_")
 IFA$grp.count <- lapply(cID, function(x) cgroups$group[which(cgroups$cluster %in% x)]) %>% 
-  purrr::map(unique) %>% sapply(paste0, collapse = ";")
+  purrr::map(unique) %>% lapply(sort) %>% sapply(paste0, collapse = ";")
 cID <- map2(IFA$decade, IFA$percent %>% strsplit(";"), paste, sep = "_")
 IFA$grp.percent <- lapply(cID, function(x) cgroups$group[which(cgroups$cluster %in% x)]) %>% 
-  purrr::map(unique) %>% sapply(paste0, collapse = ";")
+  purrr::map(unique) %>% lapply(sort) %>% sapply(paste0, collapse = ";")
 
 IFA <- merge(IFA, occ %>% select(OBJECTID, ACBR_Name) %>% unique(), by.x = "IFA", by.y = "OBJECTID", all.x = TRUE)
 
@@ -109,6 +117,7 @@ species <- melt(clustm %>% mutate(species = rownames(clustm))) %>%
   merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
 
 sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE)
+table(sppDat$phylum, sppDat$group)[which(rowSums(table(sppDat$phylum, sppDat$group))>0),]
 # Calculate IFA habitats ####
 
 hab_IFA <- read_csv("data/Habitats/Habitat_IFA_join.csv")
@@ -118,10 +127,33 @@ habifa <- dcast(hab_IFA, OBJECTID_1~n8_W, value.var = "Inv_Distance", fun.aggreg
 habifa$dom_habitat <- apply(habifa, 1, which.max)
 
 master <- merge(habifa %>% select(dom_habitat), IFA, by.x =0, by.y = "IFA")
+master$ecogroup <- paste0("hab", master$dom_habitat, "_grp", master$grp.count)
 
 masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
 ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + geom_alluvium(aes(fill = decade), width = 1/12) + geom_stratum(width = 1/12, fill = "gray", color = "white") + geom_label(stat = "stratum", infer.label= TRUE) + scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + scale_fill_brewer(type = "qual", palette = "Set1")
-#####
+
+
+## Classify IFAs that weren't used to generate groups.
+groups <- split(sppDat$scientificName, f = sppDat$group)
+PA <- tobinary(Abund) %>% lapply(clean.empty)
+
+test <- purrr::map(PA, ~apply(., 2, function(x) getGroups(groups, names(x[which(x>0)]))) %>% 
+             apply(2, which.max)) %>% lapply(data.frame)%>% 
+          purrr::map(~mutate(.,IFA = rownames(.))) %>% bind_rows(.id = "decade")
+names(test)[2] <- "group"
+
+ecogroups <- merge(test, habifa %>% select(dom_habitat), by.x = "IFA", by.y = 0, all.x = TRUE)
+ecogroups$ecogroup <- paste0("hab", ecogroups$dom_habitat, "_grp", ecogroups$group)
+
+# All together, Not by decade ####
+
+PA1 <- PA0 %>% reshape2::dcast(scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>% namerows() %>% clean.empty(mincol = 5, minrow = 2)
+pairs1 <- simpairs(PA1)
+el1 <- dist2edgelist(pairs1, PA1)
+g1 <- el1 %>% filter(Z.Score > quantile(Z.Score, 0.995, na.rm = T)) %>% graph_from_data_frame(directed = F)
+plot(g1, vertex.label = NA, vertex.size = 4)
+
+
 #####
 #####
 #####

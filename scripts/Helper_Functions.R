@@ -78,6 +78,7 @@ simpairs <- function(x){ #simpairs function, simpairs only out
       for (k in 0:a)
         z[i,j] = z[i,j] + choose(occs[j] , k) * choose(samples - occs[j] , occs[i] - k) / choose(samples , occs[i])
       z[i,j] = z[i,j] - choose(occs[j] , a) * choose(samples - occs[j] , occs[i] - a) / choose(samples , occs[i]) / 2
+      if(z[i,j] == 1) z[i,j] <- 0.99999999999999994 # solve rounding issue.
       z[i,j] = qnorm(z[i,j])
       z[j,i] = z[i,j]
     }
@@ -152,4 +153,8 @@ getSites <- function(clusters, PA, type = "count"){
 ## special merge ##
 multimerge <- function(x, y){
   merge(x, y, by = 0, all = TRUE) %>% namerows()
+}
+
+getGroups <- function(groups, species){
+  purrr::map_int(groups, ~length(which(species %in% .)))
 }
