@@ -28,7 +28,7 @@ In the past 3 weeks, I have taken a first stab at constructing a rudimentary typ
 
 1. Spatial join species occurrences with IFAs to produce presence-absence matrices (rows are species, columns are unique IFAs). One presence-absence matrix per decade (e.g. 1960s, 1970s, etc.), such that species had to be sampled in the same IFA in the same decade in order to be co-occurring.  
 
-2. Select IFAs with 5 or more species documented within a decade, and species with 5 or more observations within a decade, such that marginal totals are all 5 or more in each decade's matrix. The point of this is to ensure that "typical" assemblages are not based on matching faunas in 2 or 3 IFAs. They must be observed in 5 or more IFAs. In the resulting matrices, it is possible for IFAs and species to occur in only one decade, or several decades. IFAs that were sampled adequatedly in multiple decades would, for instance, be included in each matrix with the species data that was collected in that decade. 
+2. Select IFAs with 5 or more species documented within a decade, and species with 5 or more observations within a decade, such that marginal totals are all 5 or more in each decade's matrix. The point of this is to ensure that "typical" assemblages are not based on matching faunas in 2 or 3 IFAs. They must be observed in 5 or more IFAs. In the resulting matrices, it is possible for IFAs and species to occur in only one decade, or several decades. IFAs that were sampled adequatedly in multiple decades would, for instance, be included in each matrix with the species data that was collected in that decade. Also removed records that were not identifed to species level and those with .cf in the name, as the classification of these is uncertain. 
 
 3. Run a co-occurrence analysis on the P-A matrices. Fisher's Exact Test (mid-P variant) was used, which is what I used for my PhD thesis, so I understand it very well. Other metrics could be used but I am confident of this metric's conservative performance and its reliability in boundary cases (e.g. very rare or very common species).
 
@@ -44,14 +44,15 @@ In the past 3 weeks, I have taken a first stab at constructing a rudimentary typ
 
 9. I defined an ecogroup (not an ecosystem yet...), as each unique combination of Assemblage and habitat type that I observed after joining the results of the assemblage and habitat analyses. 
 
-Results: 
+### Results: 
 Three general assemblage types. Group 1 is dominated by fungi, cyanobacteria, and some mosses, and occurs all over the Antarctic mainland, as well as occasionally on the peninsula. Ecogroups hab7_grp1 and hab8_grp1 dominate the bulk of the continent. This group also contains Ochrophyta, Rotifers, Tardigrades, Chlorophyta, and some arthropods. 
 
 Group 2 is dominated by (presumably mostly different) fungi and mosses. It is found only on the peninsula and nearby islands. 
 
 Group 3 is dominated by vertebrates (basically all penguins, seabirds, and pinnipeds), along with an apparently complimentary suite of arthropods, nematodes, and mosses.
 
-Discussion (to be discussed with David and Aleks at next meeting):
+### Discussion (to be discussed with David and Aleks at next meeting):
+
 Species can occur in more than one group and this is especially true for common species. For instance, Adelie penguins are the only chordate in group 1, but they are also included in group 3. Chinstrap and Gentoo penguins, antarctic pearlwort and hair grass are all in both groups 2 and 3. 
 *** need to check for overlaps among groups in the fungi, arthropods, and mosses particularly*** 
 
@@ -64,6 +65,8 @@ I am concerned that these preliminary assemblage groups may be influenced by sam
 Most literature says that biotic interactions have very little effect on community assembly in the Antarctic, because the ability to survive the harsh conditions is much more important. However, group 3 seems to have a specific suite of bugs, mosses, and nematodes. Is it possible that there's a suite of species that are supported by nesting seabird colonies (like nematodes living in the guano or something)? Do seabirds take these commensals/parasites with them wherever they establish colonies?
 
 Potentially need to find finer delineations within group 1. Could be that a separate analysis should be run with the peninsula excluded to be able to detect such finer delineations?
+
+Several IFAs (most islands) didn't make it into the habitat calculation analysis; probably need to add them if possible. 
 
 Need to align ecogroup delinations with the ecosystems described within the global ecosystem typology. 
 
