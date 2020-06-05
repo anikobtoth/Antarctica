@@ -135,12 +135,18 @@ ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + geom_a
 
 ## Classify IFAs that weren't used to generate groups.
 groups <- split(sppDat$scientificName, f = sppDat$group)
+# TODO: redo Abund without getting rid of undated occurrences; may help classify some IFAs, even if it's without any temporal resolution.
 PA <- tobinary(Abund) %>% lapply(clean.empty)
 
-test <- purrr::map(PA, ~apply(., 2, function(x) getGroups(groups, names(x[which(x>0)]))) %>% 
-             apply(2, which.max)) %>% lapply(data.frame)%>% 
-          purrr::map(~mutate(.,IFA = rownames(.))) %>% bind_rows(.id = "decade")
-names(test)[2] <- "group"
+PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, year) 
+PA0 <- PA0[-grep(" cf. " ,PA0$scientific),]
+PA0 <- PA0[-grep(" sp." ,PA0$scientific),]
+
+PA <- PA0 %>% reshape2::dcast(scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>% namerows() %>% clean.empty()
+
+test <- purrr::map_int(PA, ~getGroups(groups, rownames(PA[which(.>0),])) %>% 
+             which.max) %>% data.frame(IFA = names(.))
+names(test)[1] <- "group"
 
 ecogroups <- merge(test, habifa %>% select(dom_habitat), by.x = "IFA", by.y = 0, all.x = TRUE)
 ecogroups$ecogroup <- paste0("hab", ecogroups$dom_habitat, "_grp", ecogroups$group)
@@ -150,10 +156,22 @@ ecogroups$ecogroup <- paste0("hab", ecogroups$dom_habitat, "_grp", ecogroups$gro
 PA1 <- PA0 %>% reshape2::dcast(scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>% namerows() %>% clean.empty(mincol = 5, minrow = 2)
 pairs1 <- simpairs(PA1)
 el1 <- dist2edgelist(pairs1, PA1)
-g1 <- el1 %>% filter(Z.Score > quantile(Z.Score, 0.995, na.rm = T)) %>% graph_from_data_frame(directed = F)
-plot(g1, vertex.label = NA, vertex.size = 4)
+g1 <- el1 %>% filter(Z.Score > quantile(Z.Score, 0.985, na.rm = T)) %>% 
+  graph_from_data_frame(directed = F)
+#g1 <- delete_edges(g1, e = E(g1)[which(E(g1)$Z.Score < quantile(E(g1)$Z.Score, 0.985, na.rm = T))])
+l <- layout_with_graphopt(g1)
+plot(g1, vertex.label = NA, vertex.size = 4, layout = l)
+cl1 <- cluster_(g1, weights = E(g1)$Z.Score)
 
+##### Sub-clusters within major assemblage groups ####
+PAg <- lapply(groups, function(x) PA[x,]) %>% lapply(clean.empty)
 
-#####
+pairsg <- lapply(PAg, simpairs)
+elg <- map2(pairsg, PAg, dist2edgelist)
+gg <- elg %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.9, na.rm = T)) %>% 
+  purrr::map(graph_from_data_frame, directed = F)
+
+modg <- purrr::map(gg, ~cluster_fast_greedy(., weights = E(.)$Z.Score))
+
 #####
 #####
