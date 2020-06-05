@@ -23,19 +23,20 @@ habDat <- read_csv("data/Habitats/Hab8_ACBR_join.csv")
 
 x <- princomp(envpred_norm[,2:15] %>% select(-sumtemp, -rugos, -rad, -melt, -modT_0315, -DDminus5))
 
-autoplot(x, data = habDat, col = "n8_W", 
+autoplot(x, data = habDat, col = "n8U", 
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4)
 
 
 library(rgl)
-plot3d(x$scores[,1:3], col=habDat$n8U)
-text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 habDat$n8U <- cmeans(envpred_norm %>% select(-sumtemp, -rugos, -rad, -melt, -modT_0315, -DDminus5), 
        8, iter.max = 1000,verbose = FALSE, 
        dist = "euclidean", method = "ufcl", m = 2, 
-       rate.par = 0.3, weights = 1)$cluster
+       rate.par = 0.3, weights = 1)$cluster %>% as.factor()
+
+plot3d(x$scores[,1:3], col=habDat$n8U)
+text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 ########### UNWEIGHTED UNSUPERVISED FUZZY c-MEANS ########################
 
