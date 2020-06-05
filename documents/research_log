@@ -93,5 +93,45 @@ In terms of unique antartic ecosystems it's probably worth defining which specie
 All three groups occur on the Antarctic peninsula, and there doesn't appear to be a spatial pattern, they are all mixed together. Perhaps there is an environmental reason (e.g. rugosity/slope) why one assemblage or another dominates in an IFA. Worth checking how distinct the assemblages in these IFAs are (do they contain many shared species, for instance? How many species from each group? The ecogroups were determined by taking the group from which the most species are present).
 
 
+3 June 2020
+
+Futher analysis of the 3 typical assemblages has revealed the following. 
+Group 2 is a jumble of mostly Ascomycota and Bryophyta, without any immediately apparent internal structure. 
+
+Groups 1 and 3 both have strong internal structuring. Both groups separate at least partially along phylum lines, which implicates sampling as the main driver of structure (e.g. people sampling members of only 1 or 2 phyla in an IFA, another team sampling different phyla in another IFA, etc.). Group 1 separates roughly into 2 big subgroups. One subgroup (say 1.1) is comprised of Bryophytes and Ascomycotes, the second subgroup (1.2) consists of Cyanobacteria, Chlorophyta (green algae), rotifers, etc. Both groups have a few tardigrades.
+Group 3 separates cleanly into 5 subgroups, one of Nematodes, one group of Chordates, Bryophytes, Arthropods, and Tardigrades, respectively. 
+
+Because sampling is apparently so pervasive in determining assemblage structure in each IFA, it may be worth looking for community structure instead within each phylum (although apparently Ascomycota and Bryophyta can be kept together).
+
+
+5 June 2020
+
+Meeting with Aleks and David for updates (9-10am)
+
+Notes: 
+Subantarctic islands should be included in a later phase of the project; for now focusing on Antarctic mainland and perhaps very closely associated islands only. 
+
+Antarctic lakes should be included - these are their own ecosystem type. Antarctic lakes vary greatly in salinity, and may require a delineation somewhere along the gradient, as hypersaline and freshwater lakes are quite different. 
+Spatial data on Antarctic lakes is available, but may be regional and probably needs to be collated on a continental scale. 
+
+Geothermal sites are another unique thing again; these will probably be excluded for now. Existing spatial data includes active and dormant/extinct volcanic sites, so for now it's not really a good indicator of diversity. 
+
+In terms of the global typology, Antarctic ecosystems (excl. the lakes) will fall in two main categories: polar cliffs/screes/outcrops/lava flows and polar tundra/desert. It will be useful to think in these contexts. 
+
+I updated the team on the analyses described in the last few entries. There is a consensus that there's a strong sampling signal, because of the taxonomic separations between many of the clusters and subclusters. Aleks suggested repeating the analysis with a grid-site system instead of IFA's as the sites. This may help deal with sampling issues. 
+
+Aleks suggested that the results of the SDMs might also help resolve sampling difficulties. 
+
+The group is agreed however that including species data in the determination of the typology is a novel idea that may become very useful in broader contexts if actualised. 
+
+Habitat types, which I have not written about yet, were determined by the previous work of Aleks's team using a fuzzy cluster analysis (cmeans). In the last month I have played around with the variables included in the analysis as well as the number of clusters, but these do not seem to make a major difference in the analysis. We will discuss this more later. 
+
+Aniko and Aleks will meet next week to go over the details together. Aniko will prepare some visuals and send them early next week for Aleks to go over: 
+
+(1) Habitat types analyses- variations 
+(2) Results of current cluster analyses including shapefiles and alluvial plot
+(3) Same as (2) but for grid squares as sites instead of IFAs.
+
+David will get in touch with all collaborators on the grant and schedule a larger group meeting; Aniko to prepare agenda and materials for the meeting. 
 
 
