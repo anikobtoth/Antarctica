@@ -33,6 +33,12 @@ namerows <- function(table){
   return(table)
 }
 
+rows2name <- function(table){
+  table <- data.frame(name = rownames(table), table)
+  table$name <- as.character(table$name)
+  
+  return(table)
+}
 # remove empty rows and columns in 1 matrix
 # or remove rows and columns with too few observations
 clean.empty <- function(x, mincol = 1, minrow = 1){
@@ -158,3 +164,22 @@ multimerge <- function(x, y){
 getGroups <- function(groups, species){
   purrr::map_int(groups, ~length(which(species %in% .)))
 }
+
+
+####### PLOTTING ############
+
+plotnet_ <- function(g, title) {
+  pal <- brewer.pal(length(unique(V(g)$cluster)),"Accent")
+  plot.igraph(g, vertex.label = NA, vertex.size = 5, vertex.color = pal[V(g)$cluster], main = title)
+  legend("topleft", legend = levels(as.factor(V(g)$cluster)),pt.cex = 2, fill = pal)
+  box()
+}
+
+plotnet <- function(g, mod, title){
+  V(g)$cluster <- as.factor(mod$membership)
+  plotnet_(g, title)
+}
+
+#####
+#####
+####

@@ -2,6 +2,7 @@ library(tidyverse)
 library(igraph)
 library(ggalluvial)
 library(reshape2)
+library(RColorBrewer)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
@@ -43,20 +44,26 @@ g <- el %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.90, na.rm = T)) %>%
   purrr::map(graph_from_data_frame, directed = F)
 
 mod <- purrr::map(g, ~cluster_fast_greedy(., weights = E(.)$Z.Score))
-#modsp <- purrr::map(g, ~cluster_spinglass(., weights = E(.)$Z.Score))
+g <- map2(g, mod, function(x, y) {V(x)$cluster <- as.factor(y$membership) 
+          return(x)})
+
+par(mfrow = c(2, 3), mar = c(0, 0, 1, 0), oma = c(1,1,1,1))
+map2(g, paste0(names(g), "0"), plotnet_)
+
 
 ## Assemblage clusters similarity analysis #####
 
 clust <- purrr::map(mod, ~data.frame(names = .$names, cluster = .$membership)) %>% 
   bind_rows(.id = "decade") %>% mutate(clustID = paste(decade, cluster, sep = "_"))
-clustm <- dcast(clust, names~clustID, fun.aggregate = length, fill = 0) %>% namerows()
+clustm <- dcast(clust, names~clustID, fun.aggregate = length, fill = 0, value.var = "clustID") %>% namerows()
 
 # ordination
 cdist <- forbesMatrix(clustm) %>% as.dist(upper = F)
 cord <- cmdscale(1-cdist, k = 2) %>% data.frame(cluster = colnames(clustm), .)
 cord <- cord %>% mutate(decade = word(cluster, 1, 1, sep="_"), cID = word(cluster, 2, 2, sep="_"))
 
-ggplot(cord, aes(x = X1, y = X2, col = decade, label = cID)) + geom_point() + geom_text(hjust = 0, vjust = 0)
+ggplot(cord, aes(x = X1, y = X2, col = decade, label = cID)) + geom_point() + geom_text(hjust = 0, vjust = 0) +
+  ggtitle("PCoA of clusters by decade based on species composition")
 
 #pairs
 cpairs <- clustm %>% t() %>% simpairs()
@@ -66,7 +73,9 @@ cg <- cel %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.84, na.rm = T)) %>%
   graph_from_data_frame(directed = F)
 V(cg)$decade <- V(cg)$name %>% word(1,1, sep = "_")
 cmod <- cluster_fast_greedy(cg, weights = E(cg)$Z.Score)
-plot(cg, vertex.label = NA, vertex.size = 4, vertex.color = cmod$membership)
+
+par(mfrow = c(1,1))
+plotnet(cg, cmod, "Cluster analysis of species clusters")
 
 cgroups <- data.frame(cluster = cmod$names, group = cmod$membership)
 cgroups <- merge(cord, cgroups) %>% mutate(cID = as.numeric(cID))
@@ -84,6 +93,9 @@ assemb1 <- assemb1 %>% purrr::map(~apply(.,1, function(x) which(x == max(x, na.r
                                 data.frame()) %>% 
                                   bind_rows(.id = "IFA")) %>% bind_rows(.id = "decade")
 asmb1 <- assemb1 %>% group_by(decade, IFA) %>% summarise(count = paste0(sort(.), collapse = ";"))
+
+
+lapply(s_count, lapply, data.frame) %>% lapply(lapply, rows2name) %>% lapply(bind_rows, .id = "cluster") %>% bind_rows(.id = "decade") %>% unite("id", decade, cluster, sep = "_") %>% spread(key = id, value = "X..i..")
 
 assemb2 <- lapply(s_prcnt, lapply, data.frame) %>% purrr::map(~reduce(., multimerge))
 assemb2 <- purrr::map(assemb2, function(x) x %>% setNames(paste("X", 1:ncol(x), sep = "")))
@@ -116,7 +128,7 @@ species <- melt(clustm %>% mutate(species = rownames(clustm))) %>%
   filter(value > 0) %>% 
   merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
 
-sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE)
+sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE) %>% unique()
 table(sppDat$phylum, sppDat$group)[which(rowSums(table(sppDat$phylum, sppDat$group))>0),]
 # Calculate IFA habitats ####
 
@@ -130,7 +142,13 @@ master <- merge(habifa %>% select(dom_habitat), IFA, by.x =0, by.y = "IFA")
 master$ecogroup <- paste0("hab", master$dom_habitat, "_grp", master$grp.count)
 
 masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
-ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + geom_alluvium(aes(fill = decade), width = 1/12) + geom_stratum(width = 1/12, fill = "gray", color = "white") + geom_label(stat = "stratum", infer.label= TRUE) + scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + scale_fill_brewer(type = "qual", palette = "Set1")
+ggplot(masterg %>% filter(!grp.count == ""), aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + 
+  geom_alluvium(aes(fill = decade), width = 1/12) + 
+  geom_stratum(width = 1/12, fill = "gray", color = "white") + 
+  geom_label(stat = "stratum", infer.label= TRUE) + 
+  scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + 
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Distribution of typical assemblages in typical habitats by decade")
 
 
 ## Classify IFAs that weren't used to generate groups.
