@@ -139,3 +139,40 @@ David will get in touch with all collaborators on the grant and schedule a large
 
 Working on producing some nice reports of the analyses so far. Will send these to Aleks in preparation for our follow-up meeting on Friday. 
 
+11-12 Jun 2020
+
+Working on new cluster analyses split by taxon (Phylum) instead of decade. Assumption is that assemblages have higher longevity in Antarctic because of the cold/slow metabolisms etc. Things that are there in one decade are likely to be present in the next. 
+
+Procedure is slightly different; we make co-occurrence (aggregation-only) networks for each phylum, run cluster analysis, and look for membership of sites in each cluster. Idea is to look for spatial agreement between the clusters of different taxa, to try to classify IFAs into ecosystem types. 
+
+Code for the analysis will be copied partially from species_script.R and saved in a new script called phylum_script.R.
+
+Prep materials for Aleks have been summarised in 2 documents called Antarctic_habitats.html and Antarctic_assemblages.html; both will be pushed to remote repository on github for eventual group access. 
+
+15 June 2020 
+
+Meeting was moved to Monday (today) at 12 noon. 
+
+Notes: Aleks and Aniko went over the habitat classifications derived from subsets of the variables. Based on results we agreed on an 8-habitat weighted classification scheme using: rugosity [rugos], elevation [elev], distance to coast [coast], wind, precipitation [precip], degree days [DDminus5], and solar radiation [rad]. 
+These variables were chosen based on minimization of redundance, expert (Aleks's) knowledge of the literature, and the importance/frequency of each variable in the SDM calculations. The 8 groups are somewhat arbitrary, and thus up for debate if necessary.
+
+Aniko added Aleks as collaborator in gitHub repository. Members of the team will be able to look at updates on the .Rmd files, which will be updated periodically. 
+We also went over the methods and results of the assemblages cluster analysis.
+We examined the taxonomic makeup of the 3 species clusters discussed at the last meeting and took a look at the shapefile of their distributions. We believe there is some good material there despite some obvious sampling issues and a lack of occurrence data in most ice-free areas. 
+
+Decided on some next steps: 
+
+1. Split cluster analysis by taxon instead of decade; taxon delineations to follow the functional groupings chosen for the SDM analysis. 
+
+2. Use the SDM probability surfaces to identify probable suitable habitat for functional taxa. Use probable occurrences in new cluster analysis, to integrate biological data into ecosystem classification scheme.
+
+3. Perform the biotic cluster analysis on grid cells instead of IFAs; to be done once SDM-based "occurrences" are calculated. 
+
+4. Classify species based on whether their distributions are global or specific to the Antarctic; most species seem to fall cleanly in one of these two categories, and this should help us formulate an idea of the uniqueness/irreplaceability of individual assemblages. 
+
+
+
+
+
+
+
