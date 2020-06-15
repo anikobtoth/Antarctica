@@ -23,7 +23,7 @@ habDat <- read_csv("data/Habitats/Hab8_ACBR_join.csv")
 library(rgl)
 vars1 <- c("elev", "rugos", "precip", "temp", "coast", "wind")
 vars2 <- c("V1", "coast", "geoT", "cloud", "wind", "temp", "elev", "slope",  "precip")
-
+vars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind", "rad")
 habDat$n8U2 <- cmeans(envpred_norm %>% select(vars2), 
                      8, iter.max = 1000,verbose = FALSE, 
                      dist = "euclidean", method = "ufcl", m = 2, 
@@ -44,9 +44,14 @@ habDat$n6W1 <- cmeans(envpred_norm %>% select(vars1),
                      dist = "euclidean", method = "ufcl", m = 2, 
                      rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
 
+habDat$n8W3 <- cmeans(envpred_norm %>% select(vars), 
+                      8, iter.max = 1000,verbose = FALSE, 
+                      dist = "euclidean", method = "ufcl", m = 2, 
+                      rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
+
 ########### PCA analysis ############################
 
-x <- princomp(envpred_norm[,2:15] %>% select(vars1))
+x <- princomp(envpred_norm[,2:15] %>% select(vars))
 
 lapply(names(habDat)[11:19], function(j) autoplot(x, data = habDat, col = j, 
          loadings = TRUE, loadings.label = TRUE, 
