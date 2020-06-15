@@ -20,7 +20,7 @@ envpred_norm = fread("./data/Habitats/envpred_norm.csv")
 habDat <- read_csv("data/Habitats/Hab8_ACBR_join.csv")
 
 ########### cmeans analysis ############################
-library(rgl)
+
 vars1 <- c("elev", "rugos", "precip", "temp", "coast", "wind")
 vars2 <- c("V1", "coast", "geoT", "cloud", "wind", "temp", "elev", "slope",  "precip")
 vars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind", "rad")
@@ -57,9 +57,12 @@ lapply(names(habDat)[11:19], function(j) autoplot(x, data = habDat, col = j,
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4))
 
+autoplot(x, data = habDat, col = "n8W3", 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4)
 
-
-plot3d(x$scores[,1:3], col=habDat$n6U)
+library(rgl)
+plot3d(x$scores[,1:3], col=habDat$n8W3)
 text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 ########### UNWEIGHTED UNSUPERVISED FUZZY c-MEANS ########################
