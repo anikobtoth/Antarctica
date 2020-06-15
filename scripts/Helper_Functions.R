@@ -42,8 +42,7 @@ rows2name <- function(table){
 # remove empty rows and columns in 1 matrix
 # or remove rows and columns with too few observations
 clean.empty <- function(x, mincol = 1, minrow = 1){
-  x <- x[which(rowSums(x) > minrow-1),]
-  x <- x[,which(colSums(x) > mincol-1)]
+  x <- x[which(rowSums(x) >= minrow),which(colSums(x) >= mincol)]
   return(x)
 }
 
