@@ -63,3 +63,21 @@ lapply(c("n8U2", "n6U2", "n8W2", "n6W2"), function(j) autoplot(x2, data = habDat
          loadings.label.size = 5, alpha = 0.4))
 ```
 
+
+After meeting on 15 June 2020, we decided to redo habitat classifications with the following variable set: 
+
+Elevation ["elev"], Rugosity ["rugos"], precipitation ["precip"], degree days ["DDminus5"], distance to coast ["coast"], wind ["wind"], and solar radiation ["rad"]. 
+
+Resulting plot below: 
+
+```{r}
+vars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind", "rad")
+
+x <- princomp(envpred_norm[,2:15] %>% select(vars))
+
+autoplot(x, data = habDat, col = "n8W3", 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4)
+
+```
+
