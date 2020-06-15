@@ -1,0 +1,267 @@
+---
+title: "Antarctica_assemblages"
+output: html_document
+---
+
+
+In the past 3 weeks, I have taken a first stab at constructing a rudimentary typology. My reasoning is that unique ecosystems should be delineated by a uniqueness of environmental variables (such as the aforementioned, previously calculated habitat types) and the faunas which inhabit them, which may include keystone species that provide some uniqueness to the ecosystem. Therefore, I resolved to examine the faunas of each IFA and use cluster analyses to establish if there are any typical or characteristic faunas in Antarctica. The procedure I followed is below: 
+
+1. Spatial join species occurrences with IFAs to produce presence-absence matrices (rows are species, columns are unique IFAs). One presence-absence matrix per decade (e.g. 1960s, 1970s, etc.), such that species had to be sampled in the same IFA in the same decade in order to be co-occurring.  
+
+2. Select IFAs with 5 or more species documented within a decade, and species with 5 or more observations within a decade, such that marginal totals are all 5 or more in each decade's matrix. The point of this is to ensure that "typical" assemblages are not based on matching faunas in 2 or 3 IFAs. They must be observed in 5 or more IFAs. In the resulting matrices, it is possible for IFAs and species to occur in only one decade, or several decades. IFAs that were sampled adequatedly in multiple decades would, for instance, be included in each matrix with the species data that was collected in that decade. Also removed records that were not identifed to species level and those with .cf in the name, as the classification of these is uncertain. 
+
+3. Run a co-occurrence analysis on the P-A matrices. Fisher's Exact Test (mid-P variant) was used, which is what I used for my PhD thesis, so I understand it very well. Other metrics could be used but I am confident of this metric's conservative performance and its reliability in boundary cases (e.g. very rare or very common species).
+
+4. For each decade, build a co-occurrence network with the strongest 10% of aggregations, and perform a cluster analysis (used igraph package, cluster_fast_greedy function).
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(igraph)
+library(ggalluvial)
+library(reshape2)
+library(RColorBrewer)
+source('../scripts/Helper_Functions.R')
+
+```
+
+
+```{r include=FALSE}
+# Load data ####
+occurrences <- read_csv("../data/Species/Ant_Terr_Bio_Data_FINAL.csv")
+
+occurrences <- occurrences %>% select(scientificName, vernacularName, 
+                                      decimalLongitude, decimalLatitude, 
+                                      ACBR_ID, ASPA_ID, Date, year, Publish_YEAR, 
+                                      kingdom, phylum , class, order, 
+                                      family, genus, species, Snap_IFA, 
+                                      Dist_IFA, coordinateUncertaintyInMetres, 
+                                      individualCount)
+
+## Species data ####
+sppDat <- occurrences %>% select(scientificName, vernacularName, kingdom, phylum, 
+                                 class, order, family, genus, species) %>% unique()
+
+# Occurrence in ice-free areas (Ice-free patches as sites).
+occ <- read_csv("../data/Species/Spp_iceFree_occ.csv")
+
+PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, year) %>% 
+  filter(year > 1960 & OBJECTID > 0)
+PA0 <- PA0[-grep(" cf. " ,PA0$scientific),]
+PA0 <- PA0[-grep(" sp." ,PA0$scientific),]
+
+Abund <- PA0 %>% split(.$year %/% 10) %>% 
+  lapply(reshape2::dcast, scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>%
+  lapply(namerows) %>%
+  purrr::map(clean.empty, mincol = 5, minrow = 2)
+
+PA <- tobinary(Abund) %>% lapply(clean.empty, mincol = 5, minrow = 5)
+pairs <- readRDS("../results/IFA_Pairs_byDecade_mr5_mc5.rds")
+
+
+```
+
+
+```{r echo=FALSE, warning= FALSE, results='hide',fig.keep='all'}
+el <- map2(pairs, PA, dist2edgelist) #%>% bind_rows(.id = "decade")
+
+g <- el %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.90, na.rm = T)) %>% 
+  #purrr::map(mutate, weight = Z.Score) %>%
+  purrr::map(graph_from_data_frame, directed = F)
+
+mod <- purrr::map(g, ~cluster_fast_greedy(., weights = E(.)$Z.Score))
+g <- map2(g, mod, function(x, y) {V(x)$cluster <- as.factor(y$membership) 
+          return(x)})
+
+par(mfrow = c(2, 3), mar = c(0, 0, 1, 0), oma = c(1,1,1,1))
+map2(g, paste0(names(g), "0"), plotnet_)
+
+```
+
+5. Create an incidence matrix of species by clusters. Clusters are unique to each decade. A quick PCA allows us to see how clusters persist over time. 
+
+```{r echo=FALSE, fig.height=4, fig.width=5, warning=FALSE, results='hide',fig.keep='all'}
+## Assemblage clusters similarity analysis #####
+
+clust <- purrr::map(mod, ~data.frame(names = .$names, cluster = .$membership)) %>% 
+  bind_rows(.id = "decade") %>% mutate(clustID = paste(decade, cluster, sep = "_"))
+clustm <- dcast(clust, names~clustID, fun.aggregate = length, fill = 0, value.var = "clustID") %>% namerows()
+
+# ordination
+cdist <- forbesMatrix(clustm) %>% as.dist(upper = F)
+cord <- cmdscale(1-cdist, k = 2) %>% data.frame(cluster = colnames(clustm), .)
+cord <- cord %>% mutate(decade = word(cluster, 1, 1, sep="_"), cID = word(cluster, 2, 2, sep="_"))
+
+ggplot(cord, aes(x = X1, y = X2, col = decade, label = cID)) + geom_point() + geom_text(hjust = 0, vjust = 0) +
+  ggtitle("PCoA of species clusters")
+
+```
+
+6. Run another co-occurrence and cluster analysis, but this time on the first set of clusters. This reduces the number of species groupings, and accounts for small shifts in cluster composition over time. Sometimes two smaller clusters in one time interval, for example, are linked together by a larger cluster in another time interval. The resulting groups are our unique assemblage indicators. 
+
+```{r echo=FALSE, fig.height=4, fig.width=5, warning=FALSE, results='hide',fig.keep='all'}
+#pairs
+cpairs <- clustm %>% t() %>% simpairs()
+cel <- dist2edgelist(cpairs, t(clustm))
+
+cg <- cel %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.84, na.rm = T)) %>% 
+  graph_from_data_frame(directed = F)
+V(cg)$decade <- V(cg)$name %>% word(1,1, sep = "_")
+cmod <- cluster_fast_greedy(cg, weights = E(cg)$Z.Score)
+
+par(mfrow = c(1,1), mar = c(.5, .5, 1, .5))
+plotnet(cg, cmod, "Cluster analysis of species clusters")
+
+cgroups <- data.frame(cluster = cmod$names, group = cmod$membership)
+cgroups <- merge(cord, cgroups) %>% mutate(cID = as.numeric(cID))
+
+ggplot(cgroups, aes(x = X1, y = X2, col = as.factor(group), label = decade)) + geom_point() + geom_text(hjust = 0, vjust = 0) + labs(col = "group")
+
+```
+
+Here is a table of the composition of groups 1, 2, and 3 by phylum. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## Characterise sites by assemblage ####
+
+s_count <- map2(mod, PA, getSites, type = "count")
+s_prcnt <- map2(mod, PA, getSites, type = "percent")
+
+assemb1 <- lapply(s_count, lapply, data.frame) %>% purrr::map(~reduce(., multimerge))
+assemb1 <- purrr::map(assemb1, function(x) x %>% setNames(paste("X", 1:ncol(x), sep = "")))
+assemb1 <- assemb1 %>% purrr::map(~apply(.,1, function(x) which(x == max(x, na.rm = TRUE)) %>% 
+                                data.frame()) %>% 
+                                  bind_rows(.id = "IFA")) %>% bind_rows(.id = "decade")
+asmb1 <- assemb1 %>% group_by(decade, IFA) %>% summarise(count = paste0(sort(.), collapse = ";"))
+
+assemb2 <- lapply(s_prcnt, lapply, data.frame) %>% purrr::map(~reduce(., multimerge))
+assemb2 <- purrr::map(assemb2, function(x) x %>% setNames(paste("X", 1:ncol(x), sep = "")))
+assemb2 <- assemb2 %>% purrr::map(~apply(.,1, function(x) which(x == max(x, na.rm = TRUE)) %>% 
+                                           data.frame()) %>% 
+                                    bind_rows(.id = "IFA")) %>% bind_rows(.id = "decade")
+asmb2 <- assemb2 %>% group_by(decade, IFA) %>% summarise(percent = paste0(sort(.), collapse = ";"))
+assemblages <- merge(asmb1, asmb2, all = TRUE)
+
+
+## PCoA on assemblages ####
+dist <- map(PA, forbesMatrix) %>% map(as.dist, upper = F) %>% map(~return(1-.)) 
+ord <- map(dist, cmdscale, k = 2) %>% map2(PA, function(x, y) data.frame(IFA = colnames(y), x))
+ord <- bind_rows(ord, .id = "decade")
+
+IFA <- merge(ord, assemblages, all = TRUE) %>% mutate(IFA = as.numeric(IFA))
+
+
+cID <- map2(IFA$decade, IFA$count %>% strsplit(";"), paste, sep = "_")
+IFA$grp.count <- lapply(cID, function(x) cgroups$group[which(cgroups$cluster %in% x)]) %>% 
+  purrr::map(unique) %>% lapply(sort) %>% sapply(paste0, collapse = ";")
+cID <- map2(IFA$decade, IFA$percent %>% strsplit(";"), paste, sep = "_")
+IFA$grp.percent <- lapply(cID, function(x) cgroups$group[which(cgroups$cluster %in% x)]) %>% 
+  purrr::map(unique) %>% lapply(sort) %>% sapply(paste0, collapse = ";")
+
+IFA <- merge(IFA, occ %>% select(OBJECTID, ACBR_Name) %>% unique(), by.x = "IFA", by.y = "OBJECTID", all.x = TRUE)
+
+## Species allocation in cluster groups #####
+species <- melt(clustm %>% mutate(species = rownames(clustm))) %>% 
+  filter(value > 0) %>% 
+  merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
+
+sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE) %>% unique()
+table(sppDat$phylum, sppDat$group)[which(rowSums(table(sppDat$phylum, sppDat$group))>0),]
+
+```
+
+7. Now we have to identify which assemblage best characterises each IFA. I used the assemblage from which each IFA has the most species (as opposed to the highest percentage of species, which I also calculated-- the two measures matched in about 70% of cases).
+
+8. Calculated the dominant habitat type in each IFA. Did this by performing a spatial join on habitat points and IFAs, then weighting each point by the inverse of its distance from the IFA plus 1 metre (to avoid Inf values). I took the sum of each habitat type in each IFA, and chose the highest one to determine the dominant habitat type. 
+
+9. I defined an ecogroup (not an ecosystem yet...), as each unique combination of Assemblage and habitat type that I observed after joining the results of the assemblage and habitat analyses. 
+
+
+### Results: 
+Three general assemblage types. Group 1 is dominated by fungi, cyanobacteria, and some mosses, and occurs all over the Antarctic mainland, as well as occasionally on the peninsula. Ecogroups hab7_grp1 and hab8_grp1 dominate the bulk of the continent. This group also contains Ochrophyta, Rotifers, Tardigrades, Chlorophyta, and some arthropods. 
+
+Group 2 is dominated by (presumably mostly different) fungi and mosses. It is found only on the peninsula and nearby islands. 
+
+Group 3 is dominated by vertebrates (basically all penguins, seabirds, and pinnipeds), along with an apparently complimentary suite of arthropods, nematodes, and mosses. It is found mostly on the peninsula but with occasional isolated occurrences around the coast of the continent.
+
+#### Details on overlap between clusters
+
+Group 1 has 154 species; Group 2 has 122 species; Group 3 has 73 speces. 
+
+Two species of plants are classified in all three groups: 
+Hennediella heimii (a moss) and Prasiola crispa (a green algae), and thus cannot be used to classify an assemblage. Both have global distributions. 
+
+Twenty-one species are in both groups 1 and 2 (19 not counting the two above; 10 species of fungi and 9 species of mosses). About half the fungus species but none of the mosses are specific to the antarctic and sub-antarctic. 
+
+Sixteen species (14 not counting the two at top) are in both groups 2 and 3. This includes 2 species of fungi, 7 species of mosses, 2 vertebrates (Chinstrap and Gentoo penguins), and 2 vascular plants (Antarctic hair grass and Antarctic pearlwort). One fungus is specific to the Antarctic peninsula, the other has a global distribution. One moss species is specific to the Antarctic peninsula, the others are global. 
+
+There are six overlapping species between groups 1 and 3; four excluding the two found in all three groups. They are: 1 vertebrate (Adelie penguin), 1 liverwort (Cephaloziella exiliflora-- also found in Australia), 1 nematode (Plectus antarcticus, specific to Antarctica), and 1 tardigrade (Hypsibius dujardini, global in distribution).
+
+
+### Discussion
+
+Species can occur in more than one group and this is especially true for common species. For instance, Adelie penguins are the only chordate in group 1, but they are also included in group 3. Chinstrap and Gentoo penguins, antarctic pearlwort and hair grass are all in both groups 2 and 3. 
+
+Many species are not in a group (most are too rare). If we were to classify them it would be by examining what they co-occur with the one or two times they were sampled. 
+
+IFAs can change ecogroup over time, and this does seem to happen a fair bit. It is possible that these IFAs have species that are in more than one group, which means they can flip-flop even when the assemblage did not turn over completely.
+
+Potential sampling problems:
+I am concerned that these preliminary assemblage groups may be influenced by sampling effort, namely, because researchers have target taxa that they are sampling when they go on expeditions. So an expedition that goes to count seabirds will not sample cyanobacteria in the same sites, and this may account for why most phyla seem to fall primarily into one of the three assemblage groups. This may cause artificial separation between my assemblage groups. 
+Most literature says that biotic interactions have very little effect on community assembly in the Antarctic, because the ability to survive the harsh conditions is much more important. Group 3 seems to have a specific suite of bugs, mosses, and nematodes. Is it possible that there's a suite of species that are supported by nesting seabird colonies (like nematodes living in the guano or something)? Do seabirds take these commensals/parasites with them wherever they establish colonies?
+
+Potentially need to find finer delineations within group 1. Could be that a separate analysis should be run with the peninsula excluded to be able to detect such finer delineations?
+
+Several IFAs (smaller patches and most islands) didn't make it into the habitat calculation analysis; probably need to add them if possible. 
+
+Below is an alluvial plot that shows how the assemblage groups distribute themselves among the 8 habitat groups that were initially provided (corresponding to n8_W plot in the habitats doc). 
+
+
+```{r echo = FALSE, warning = FALSE, message = FALSE}
+# Calculate IFA habitats ####
+
+hab_IFA <- read_csv("../data/Habitats/Habitat_IFA_join.csv")
+hab_IFA$Inv_Distance <- 1/(hab_IFA$Distance+1)
+
+habifa <- dcast(hab_IFA, OBJECTID_1~n8_W, value.var = "Inv_Distance", fun.aggregate = sum) %>% namerows()
+habifa$dom_habitat <- apply(habifa, 1, which.max)
+
+master <- merge(habifa %>% select(dom_habitat), IFA, by.x =0, by.y = "IFA")
+master$ecogroup <- paste0("hab", master$dom_habitat, "_grp", master$grp.count)
+
+masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
+ggplot(masterg %>% filter(!grp.count == ""), aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + 
+  geom_alluvium(aes(fill = decade), width = 1/12) + 
+  geom_stratum(width = 1/12, fill = "gray", color = "white") + 
+  geom_label(stat = "stratum", infer.label= TRUE) + 
+  scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + 
+  scale_fill_brewer(type = "qual", palette = "Set1") +
+  ggtitle("Distribution of typical assemblages in typical habitats by decade")
+
+
+```
+
+
+
+In terms of unique antartic ecosystems it's probably worth defining which species are unique to antarctica and which species are not. Slightly different from this but related, which species pose invasion risk and which species are more likely to be detrimentally affected by invasives. This classification can be used to determine how irreplaceable each community or ecosystem is, and/or to what extent it has already been disrupted (and when? if we have dates).
+
+All three groups occur on the Antarctic peninsula, and there doesn't appear to be a spatial pattern, they are all mixed together. Perhaps there is an environmental reason (e.g. rugosity/slope) why one assemblage or another dominates in an IFA. Worth checking how distinct the assemblages in these IFAs are (do they contain many shared species, for instance? How many species from each group? The ecogroups were determined by taking the group from which the most species are present).
+
+
+
+### Next steps 
+
+Based on the analysis and discussion above as well as the June 5th meeting, there are several avenues that we should explore going forward.
+
+1. Repeat the analysis using grid squares instead of Ice-free polygons as sites. 
+
+2. Try splitting the data by phylogenetic taxon instead of decade. Reason is that currently the data are clustering taxonomically. Also, we do not expect assemblages to change too much over time (although this view may be challenged by some of the literature showing that brief warming events can have surprisingly lasting effects on Antarctic biotas). This may help elucidate the community structure of each taxon, and we can explore if there are any spatial paralells between taxa. 
+
+3. Incorporate SDM data somehow...? Not clear yet how we should do this, ideas welcome.
+
+4. Classify species based on the extent to which they are unique to the Antarctic. Many species appear to have global distributions which means that they are adaptible generalists and likely it will be easy for them to invade new spaces as IFAs get larger and merge. Species unique to Antarctica, on the other hand, may be in more danger of extinction etc. 
+
+5. Try running the analysis on peninsula and mainland separately.
+
+
+
