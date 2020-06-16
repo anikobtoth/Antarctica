@@ -29,6 +29,7 @@ envpred_norm = fread("../data/Habitats/envpred_norm.csv")
 
 
 load("../results/Habitat_grouping_schemes.Rdata")
+print(head(habDat))
 ```
 
 The variables available for analysis are `r names(envpred_norm)[2:15] %>% cbind()`
