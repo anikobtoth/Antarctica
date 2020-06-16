@@ -1,0 +1,84 @@
+---
+title: "Antarctic Habitats"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(e1071)
+library(data.table)
+library(tidyverse)
+library(ggfortify)
+
+```
+
+This document explores the different ways in which a grid of points covering Antarctic ice-free areas can be classified into different habitat types. 
+
+```{r include = FALSE}
+## Load data table required for appending to output at end (i.e. lat/lon,
+# # of species, # of genera, # of records)
+req_var = fread("../data/Habitats/req_var.csv")
+
+## Load data table of environmental predictors with the IF cells only, 
+#with all na values removed and normalised on a scale of 0 to 1
+envpred_norm = fread("../data/Habitats/envpred_norm.csv")
+
+
+load("../results/Habitat_grouping_schemes.Rdata")
+print(head(habDat))
+```
+
+The variables available for analysis are `r names(envpred_norm)[2:15] %>% cbind()`
+
+Habitats were classified using a fuzzy clustering algorithm, cmeans. We classified habitats using all variables and two different subsets of the variables. 
+
+In the plots below. The title of each legend can be read as follows: 
+The first number refers to the number of clusters set into the cmeans algorithm. W and U refer to weighted and unweighted cmeans. The last number refers to which subset of variables was used. The first subset of variables is: elevation, rugosity, precipitation, temperature, distance to coast, and wind.
+The second subset of variables is: distance to coast, distance to geothermal site, cloud cover, wind, temperature, elevation, slope, and precipitation. 
+Lack of a number means all variables were used.
+
+```{r echo= FALSE}
+vars1 <- c("elev", "rugos", "precip", "temp", "coast", "wind")
+vars2 <- c("coast", "geoT", "cloud", "wind", "temp", "elev", "slope",  "precip")
+
+habDat$n8_W <- as.factor(habDat$n8_W)
+
+x <- princomp(envpred_norm[,2:15])
+x1 <- princomp(envpred_norm %>% select(vars1))
+x2 <- princomp(envpred_norm %>% select(vars2))
+
+autoplot(x, data = habDat, col = "n8_W", 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4)
+
+lapply(c("n8U1", "n6U1", "n8W1", "n6W1"), function(j) autoplot(x1, data = habDat, col = j, 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4))
+
+lapply(c("n8U2", "n6U2", "n8W2", "n6W2"), function(j) autoplot(x2, data = habDat, col = j, 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4))
+```
+
+
+After meeting on 15 June 2020, we decided to redo habitat classifications with the following variable set: 
+
+Elevation ["elev"], Rugosity ["rugos"], precipitation ["precip"], degree days ["DDminus5"], distance to coast ["coast"], wind ["wind"], and solar radiation ["rad"]. 
+
+Resulting plot below: 
+
+```{r}
+vars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind", "rad")
+
+x <- princomp(envpred_norm[,2:15] %>% select(vars))
+
+autoplot(x, data = habDat, col = "n8W3", 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4)
+
+```
+

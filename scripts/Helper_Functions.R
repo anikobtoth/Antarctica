@@ -33,11 +33,16 @@ namerows <- function(table){
   return(table)
 }
 
+rows2name <- function(table){
+  table <- data.frame(name = rownames(table), table)
+  table$name <- as.character(table$name)
+  
+  return(table)
+}
 # remove empty rows and columns in 1 matrix
 # or remove rows and columns with too few observations
 clean.empty <- function(x, mincol = 1, minrow = 1){
-  x <- x[which(rowSums(x) > minrow-1),]
-  x <- x[,which(colSums(x) > mincol-1)]
+  x <- x[which(rowSums(x) >= minrow),which(colSums(x) >= mincol)]
   return(x)
 }
 
@@ -78,6 +83,7 @@ simpairs <- function(x){ #simpairs function, simpairs only out
       for (k in 0:a)
         z[i,j] = z[i,j] + choose(occs[j] , k) * choose(samples - occs[j] , occs[i] - k) / choose(samples , occs[i])
       z[i,j] = z[i,j] - choose(occs[j] , a) * choose(samples - occs[j] , occs[i] - a) / choose(samples , occs[i]) / 2
+      if(z[i,j] == 1) z[i,j] <- 0.99999999999999994 # solve rounding issue.
       z[i,j] = qnorm(z[i,j])
       z[j,i] = z[i,j]
     }
@@ -153,3 +159,26 @@ getSites <- function(clusters, PA, type = "count"){
 multimerge <- function(x, y){
   merge(x, y, by = 0, all = TRUE) %>% namerows()
 }
+
+getGroups <- function(groups, species){
+  purrr::map_int(groups, ~length(which(species %in% .)))
+}
+
+
+####### PLOTTING ############
+
+plotnet_ <- function(g, title) {
+  pal <- brewer.pal(length(unique(V(g)$cluster)),"Accent")
+  plot.igraph(g, vertex.label = NA, vertex.size = 5, vertex.color = pal[V(g)$cluster], main = title)
+  legend("topleft", legend = levels(as.factor(V(g)$cluster)),pt.cex = 2, fill = pal)
+  box()
+}
+
+plotnet <- function(g, mod, title){
+  V(g)$cluster <- as.factor(mod$membership)
+  plotnet_(g, title)
+}
+
+#####
+#####
+####

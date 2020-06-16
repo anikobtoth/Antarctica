@@ -1,0 +1,178 @@
+
+Antarctica project
+Research log
+
+by Aniko B Toth 
+
+The purpose of this research log is to keep track of the Antarctic project. 
+I will use this to log weekly/monthly progress and write down thoughts and questions. 
+
+Mid-April, 2020 (Introduction)
+I commenced working on this project near the middle of April. 
+I was given a compilation datasets and previous analyses on Antarctica by Aleks Terauds. The aim of the project is to use this and other data to produce an IUCN Red List of Ecosystems style typology for Antarctic ice-free ecosystems, describe each ecosystem, and perform risk assessments for those ecosystems which have enough data. 
+
+The first month or so was spent familiarising myself with the existing datasets and reading as much recent literature as possible about Antarctic ecosystems. 
+
+Datasets: 
+1. Current delieation of Antarctic Biogeograpic Regions (ACBRs)
+2. Polygons of Antarctic ice-free areas
+3. Cluster analysis of evenly distributed point measurements in ice-free areas based on climatic and environmental data (raw data wasn't provided), aimed at determining the main habitat types in Antarctica.
+4. Compiled species observational data from 1800s to mid 2010s; most data from 1960-2010. 
+
+
+25th May 2020
+
+The first task is the delineation of Antarctic ecosystems. The main challenges involved in this process is the lack of knowledge about Antarctica. While many places have been described and sampled for macro and micro faunas, the main consensus appears to be that there is a vast variability of faunas, with ice-free areas (IFAs) acting essentially as islands. Most researchers seem to think the greatest threats are introduced species and the possibilitity that warming climates and melting ice will increase the invasibility of previously very isolated patches of unique habitat. 
+
+In the past 3 weeks, I have taken a first stab at constructing a rudimentary typology. My reasoning is that unique ecosystems should be delineated by a uniqueness of environmental variables (such as the aforementioned, previously calculated habitat types) and the faunas which inhabit them, which may include keystone species that provide some uniqueness to the ecosystem. Therefore, I resolved to examine the faunas of each IFA and use cluster analyses to establish if there are any typical or characteristic faunas in Antarctica. The procedure I followed is below: 
+
+1. Spatial join species occurrences with IFAs to produce presence-absence matrices (rows are species, columns are unique IFAs). One presence-absence matrix per decade (e.g. 1960s, 1970s, etc.), such that species had to be sampled in the same IFA in the same decade in order to be co-occurring.  
+
+2. Select IFAs with 5 or more species documented within a decade, and species with 5 or more observations within a decade, such that marginal totals are all 5 or more in each decade's matrix. The point of this is to ensure that "typical" assemblages are not based on matching faunas in 2 or 3 IFAs. They must be observed in 5 or more IFAs. In the resulting matrices, it is possible for IFAs and species to occur in only one decade, or several decades. IFAs that were sampled adequatedly in multiple decades would, for instance, be included in each matrix with the species data that was collected in that decade. Also removed records that were not identifed to species level and those with .cf in the name, as the classification of these is uncertain. 
+
+3. Run a co-occurrence analysis on the P-A matrices. Fisher's Exact Test (mid-P variant) was used, which is what I used for my PhD thesis, so I understand it very well. Other metrics could be used but I am confident of this metric's conservative performance and its reliability in boundary cases (e.g. very rare or very common species).
+
+4. Build a co-occurrence network with the strongest 10% of aggregations, and perform a cluster analysis (used igraph package, cluster_fast_greedy function).
+
+5. Create an incidence matrix of species by clusters. Clusters are unique to each decade. A quick PCA allows us to see how clusters persist over time. 
+
+6. Run another co-occurrence and cluster analysis, but this time on the first set of clusters. This reduces the number of species groupings, and accounts for small shifts in cluster composition over time. Sometimes two smaller clusters in one time interval, for example, are linked together by a larger cluster in another time interval. The resulting groups are our unique assemblage indicators. 
+
+7. Now we have to identify which assemblage best characterises each IFA. I used the assemblage from which each IFA has the most species (as opposed to the highest percentage of species, which I also calculated-- the two measures matched in about 70% of cases).
+
+8. Calculated the dominant habitat type in each IFA. Did this by performing a spatial join on habitat points and IFAs, then weighting each point by the inverse of its distance from the IFA plus 1 metre (to avoid Inf values). I took the sum of each habitat type in each IFA, and chose the highest one to determine the dominant habitat type. 
+
+9. I defined an ecogroup (not an ecosystem yet...), as each unique combination of Assemblage and habitat type that I observed after joining the results of the assemblage and habitat analyses. 
+
+### Results: 
+Three general assemblage types. Group 1 is dominated by fungi, cyanobacteria, and some mosses, and occurs all over the Antarctic mainland, as well as occasionally on the peninsula. Ecogroups hab7_grp1 and hab8_grp1 dominate the bulk of the continent. This group also contains Ochrophyta, Rotifers, Tardigrades, Chlorophyta, and some arthropods. 
+
+Group 2 is dominated by (presumably mostly different) fungi and mosses. It is found only on the peninsula and nearby islands. 
+
+Group 3 is dominated by vertebrates (basically all penguins, seabirds, and pinnipeds), along with an apparently complimentary suite of arthropods, nematodes, and mosses. It is found mostly on the peninsula but with occasional isolated occurrences around the coast of the continent.
+
+### Discussion (to be discussed with David and Aleks at next meeting):
+
+Species can occur in more than one group and this is especially true for common species. For instance, Adelie penguins are the only chordate in group 1, but they are also included in group 3. Chinstrap and Gentoo penguins, antarctic pearlwort and hair grass are all in both groups 2 and 3. 
+*** need to check for overlaps among groups in the fungi, arthropods, and mosses particularly*** 
+
+Many species are not in a group (most are too rare). If we were to classify them it would be by examining what they co-occur with the one or two times they were sampled. 
+
+IFAs can change ecogroup over time, and this does seem to happen a fair bit. 
+
+Potential sampling problems:
+I am concerned that these preliminary assemblage groups may be influenced by sampling effort, namely, because researchers have target taxa that they are sampling when they go on expeditions. So an expedition that goes to count seabirds will not sample cyanobacteria in the same sites, and this may account for why most phyla seem to fall primarily into one of the three assemblage groups. This may cause artificial separation between my assemblage groups. 
+Most literature says that biotic interactions have very little effect on community assembly in the Antarctic, because the ability to survive the harsh conditions is much more important. However, group 3 seems to have a specific suite of bugs, mosses, and nematodes. Is it possible that there's a suite of species that are supported by nesting seabird colonies (like nematodes living in the guano or something)? Do seabirds take these commensals/parasites with them wherever they establish colonies?
+
+Potentially need to find finer delineations within group 1. Could be that a separate analysis should be run with the peninsula excluded to be able to detect such finer delineations?
+
+Several IFAs (most islands) didn't make it into the habitat calculation analysis; probably need to add them if possible. 
+
+Need to align ecogroup delinations with the ecosystems described within the global ecosystem typology. 
+
+
+28 May 2020
+
+Update on results:
+
+Group 1 has 154 species; Group 2 has 122 species; Group 3 has 73 speces. 
+
+Two species of plants are classified in all three groups: 
+Hennediella heimii (a moss) and Prasiola crispa (a green algae), and thus cannot be used to classify an assemblage. Both have global distributions. 
+
+Twenty-one species are in both groups 1 and 2 (19 not counting the two above; 10 species of fungi and 9 species of mosses). About half the fungus species but none of the mosses are specific to the antarctic and sub-antarctic. 
+
+Sixteen species (14 not counting the two at top) are in both groups 2 and 3. This includes 2 species of fungi, 7 species of mosses, 2 vertebrates (Chinstrap and Gentoo penguins), and 2 vascular plants (Antarctic hair grass and Antarctic pearlwort). One fungus is specific to the Antarctic peninsula, the other has a global distribution. One moss species is specific to the Antarctic peninsula, the others are global. 
+
+There are six overlapping species between groups 1 and 3; four excluding the two found in all three groups. They are: 1 vertebrate (Adelie penguin), 1 liverwort (Cephaloziella exiliflora-- also found in Australia), 1 nematode (Plectus antarcticus, specific to Antarctica), and 1 tardigrade (Hypsibius dujardini, global in distribution).
+
+Discussion
+
+In terms of unique antartic ecosystems it's probably worth defining which species are unique to antarctica and which species are not. Slightly different from this but related, which species pose invasion risk and which species are more likely to be detrimentally affected by invasives. This classification can be used to determine how irreplaceable each community or ecosystem is, and/or to what extent it has already been disrupted (and when? if we have dates).
+
+All three groups occur on the Antarctic peninsula, and there doesn't appear to be a spatial pattern, they are all mixed together. Perhaps there is an environmental reason (e.g. rugosity/slope) why one assemblage or another dominates in an IFA. Worth checking how distinct the assemblages in these IFAs are (do they contain many shared species, for instance? How many species from each group? The ecogroups were determined by taking the group from which the most species are present).
+
+
+3 June 2020
+
+Futher analysis of the 3 typical assemblages has revealed the following. 
+Group 2 is a jumble of mostly Ascomycota and Bryophyta, without any immediately apparent internal structure. 
+
+Groups 1 and 3 both have strong internal structuring. Both groups separate at least partially along phylum lines, which implicates sampling as the main driver of structure (e.g. people sampling members of only 1 or 2 phyla in an IFA, another team sampling different phyla in another IFA, etc.). Group 1 separates roughly into 2 big subgroups. One subgroup (say 1.1) is comprised of Bryophytes and Ascomycotes, the second subgroup (1.2) consists of Cyanobacteria, Chlorophyta (green algae), rotifers, etc. Both groups have a few tardigrades.
+Group 3 separates cleanly into 5 subgroups, one of Nematodes, one group of Chordates, Bryophytes, Arthropods, and Tardigrades, respectively. 
+
+Because sampling is apparently so pervasive in determining assemblage structure in each IFA, it may be worth looking for community structure instead within each phylum (although apparently Ascomycota and Bryophyta can be kept together).
+
+
+5 June 2020
+
+Meeting with Aleks and David for updates (9-10am)
+
+Notes: 
+Subantarctic islands should be included in a later phase of the project; for now focusing on Antarctic mainland and perhaps very closely associated islands only. 
+
+Antarctic lakes should be included - these are their own ecosystem type. Antarctic lakes vary greatly in salinity, and may require a delineation somewhere along the gradient, as hypersaline and freshwater lakes are quite different. 
+Spatial data on Antarctic lakes is available, but may be regional and probably needs to be collated on a continental scale. 
+
+Geothermal sites are another unique thing again; these will probably be excluded for now. Existing spatial data includes active and dormant/extinct volcanic sites, so for now it's not really a good indicator of diversity. 
+
+In terms of the global typology, Antarctic ecosystems (excl. the lakes) will fall in two main categories: polar cliffs/screes/outcrops/lava flows and polar tundra/desert. It will be useful to think in these contexts. 
+
+I updated the team on the analyses described in the last few entries. There is a consensus that there's a strong sampling signal, because of the taxonomic separations between many of the clusters and subclusters. Aleks suggested repeating the analysis with a grid-site system instead of IFA's as the sites. This may help deal with sampling issues. 
+
+Aleks suggested that the results of the SDMs might also help resolve sampling difficulties. 
+
+The group is agreed however that including species data in the determination of the typology is a novel idea that may become very useful in broader contexts if actualised. 
+
+Habitat types, which I have not written about yet, were determined by the previous work of Aleks's team using a fuzzy cluster analysis (cmeans). In the last month I have played around with the variables included in the analysis as well as the number of clusters, but these do not seem to make a major difference in the analysis. We will discuss this more later. 
+
+Aniko and Aleks will meet next week to go over the details together. Aniko will prepare some visuals and send them early next week for Aleks to go over: 
+
+(1) Habitat types analyses- variations 
+(2) Results of current cluster analyses including shapefiles and alluvial plot
+(3) Same as (2) but for grid squares as sites instead of IFAs.
+
+David will get in touch with all collaborators on the grant and schedule a larger group meeting; Aniko to prepare agenda and materials for the meeting. 
+
+
+9-10 June 2020
+
+Working on producing some nice reports of the analyses so far. Will send these to Aleks in preparation for our follow-up meeting on Friday. 
+
+11-12 Jun 2020
+
+Working on new cluster analyses split by taxon (Phylum) instead of decade. Assumption is that assemblages have higher longevity in Antarctic because of the cold/slow metabolisms etc. Things that are there in one decade are likely to be present in the next. 
+
+Procedure is slightly different; we make co-occurrence (aggregation-only) networks for each phylum, run cluster analysis, and look for membership of sites in each cluster. Idea is to look for spatial agreement between the clusters of different taxa, to try to classify IFAs into ecosystem types. 
+
+Code for the analysis will be copied partially from species_script.R and saved in a new script called phylum_script.R.
+
+Prep materials for Aleks have been summarised in 2 documents called Antarctic_habitats.html and Antarctic_assemblages.html; both will be pushed to remote repository on github for eventual group access. 
+
+15 June 2020 
+
+Meeting was moved to Monday (today) at 12 noon. 
+
+Notes: Aleks and Aniko went over the habitat classifications derived from subsets of the variables. Based on results we agreed on an 8-habitat weighted classification scheme using: rugosity [rugos], elevation [elev], distance to coast [coast], wind, precipitation [precip], degree days [DDminus5], and solar radiation [rad]. 
+These variables were chosen based on minimization of redundance, expert (Aleks's) knowledge of the literature, and the importance/frequency of each variable in the SDM calculations. The 8 groups are somewhat arbitrary, and thus up for debate if necessary.
+
+Aniko added Aleks as collaborator in gitHub repository. Members of the team will be able to look at updates on the .Rmd files, which will be updated periodically. 
+We also went over the methods and results of the assemblages cluster analysis.
+We examined the taxonomic makeup of the 3 species clusters discussed at the last meeting and took a look at the shapefile of their distributions. We believe there is some good material there despite some obvious sampling issues and a lack of occurrence data in most ice-free areas. 
+
+Decided on some next steps: 
+
+1. Split cluster analysis by taxon instead of decade; taxon delineations to follow the functional groupings chosen for the SDM analysis. 
+
+2. Use the SDM probability surfaces to identify probable suitable habitat for functional taxa. Use probable occurrences in new cluster analysis, to integrate biological data into ecosystem classification scheme.
+
+3. Perform the biotic cluster analysis on grid cells instead of IFAs; to be done once SDM-based "occurrences" are calculated. 
+
+4. Classify species based on whether their distributions are global or specific to the Antarctic; most species seem to fall cleanly in one of these two categories, and this should help us formulate an idea of the uniqueness/irreplaceability of individual assemblages. 
+
+
+
+
+
+
+
