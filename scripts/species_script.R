@@ -1,7 +1,8 @@
 library(tidyverse)
 library(igraph)
 library(reshape2)
-source('C:/Users/Aniko/Desktop/Antarctica/scripts/Helper_Functions.R')
+library(ggalluvial)
+source('./scripts/Helper_Functions.R')
 
 # Load data ####
 occurrences <- read_csv("data/Species/Ant_Terr_Bio_Data_FINAL.csv")
@@ -19,7 +20,7 @@ sppDat <- occurrences %>% select(scientificName, vernacularName, kingdom, phylum
                                  class, order, family, genus, species) %>% unique()
 
 # Occurrence in ice-free areas (Ice-free patches as sites).
-occ <- read_csv("data/Species/Spp_iceFree_occ.csv")
+occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
 PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, year) %>% 
   filter(year > 1960 & OBJECTID > 0)
@@ -109,9 +110,10 @@ species <- melt(clustm %>% mutate(species = rownames(clustm))) %>%
   merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
 
 sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE)
+sppDat <- unique(sppDat)
 # Calculate IFA habitats ####
 
-hab_IFA <- read_csv("data/Habitats/Habitat_IFA_join.csv")
+hab_IFA <- read_csv("./data/Habitats/Habitat_IFA_join.csv")
 hab_IFA$Inv_Distance <- 1/(hab_IFA$Distance+1)
 
 habifa <- dcast(hab_IFA, OBJECTID_1~n8_W, value.var = "Inv_Distance", fun.aggregate = sum) %>% namerows()
@@ -119,8 +121,15 @@ habifa$dom_habitat <- apply(habifa, 1, which.max)
 
 master <- merge(habifa %>% select(dom_habitat), IFA, by.x =0, by.y = "IFA")
 
+master$ecogroup <- paste0("hab", master$dom_habitat, "_asm", master$grp.count)
+
 masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
-ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + geom_alluvium(aes(fill = decade), width = 1/12) + geom_stratum(width = 1/12, fill = "gray", color = "white") + geom_label(stat = "stratum", infer.label= TRUE) + scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + scale_fill_brewer(type = "qual", palette = "Set1")
+ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + 
+  geom_alluvium(aes(fill = decade), width = 1/12) + 
+  geom_stratum(width = 1/12, fill = "gray", color = "white") + 
+  geom_label(stat = "stratum", infer.label= TRUE) + 
+  scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + 
+  scale_fill_brewer(type = "qual", palette = "Set1")
 #####
 #####
 #####
