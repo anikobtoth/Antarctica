@@ -2,11 +2,7 @@ library(tidyverse)
 library(igraph)
 library(ggalluvial)
 library(reshape2)
-<<<<<<< HEAD
-library(ggalluvial)
-=======
 library(RColorBrewer)
->>>>>>> 9bea7be958995c2f8af6b8c1442f2b98ff0a04f5
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
