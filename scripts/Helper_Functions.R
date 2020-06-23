@@ -92,6 +92,46 @@ simpairs <- function(x){ #simpairs function, simpairs only out
   return(as.dist(z, diag = F, upper = F))
 }
 
+
+simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
+  samples = ncol(x) %>% as.bigz()  #S
+  z = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
+  occs = array()
+  
+  #convert to P/A. Occs = rowsums of PA matrix.
+  x <- x/x
+  x[is.na(x)] <- 0
+  occs <- rowSums(x)
+  
+  #SimPairs Algorithm
+  for (i in 2:nrow(x))  {
+    for (j in 1:(i-1))
+    {
+      a = length(which(x[i,] > 0 & x[j,] > 0)) # B
+      
+      occsi <- as.bigz(occs[i])
+      occsj <- as.bigz(occs[j])
+      ovl <- occs[i] + occs[j] - ncol(x)
+      #simpairs
+      for (k in max(0, ovl):a){
+       
+        k <- as.bigz(k)
+        
+        A <- factorial(occsj)/(factorial(k)*factorial(occsj-k))
+        B <- factorial(samples - occsj)/(factorial(occsi - k)*factorial(samples - occsj - occsi + k))
+        C <- factorial(samples)/(factorial(occsi)*factorial(samples-occsi))
+        p <- exp(log.bigz(A)+log.bigz(B)-log.bigz(C))
+        z[i,j] <- z[i,j]+ p
+      }
+      z[i,j] <- z[i,j]-p/2
+      
+      z[j,i] = z[i,j]
+    }
+  }
+  print("check")
+  return(as.dist(z, diag = F, upper = F))
+}
+
 ### Forbes index functions by J. Alroy ###
 ##### Available from http://bio.mq.edu.au/~jalroy/Forbes.R ###
 ##### help page http://bio.mq.edu.au/~jalroy/Forbes.html ###
