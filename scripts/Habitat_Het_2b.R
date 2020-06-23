@@ -49,6 +49,21 @@ habDat$n8W3.2 <- cmeans(envpred_norm %>% select(vars),
                       dist = "euclidean", method = "ufcl", m = 2, 
                       rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
 
+habDat$n8W3.1 <- cmeans(envpred_norm %>% select(vars), 
+                        8, iter.max = 10000,verbose = TRUE, 
+                        dist = "euclidean", method = "ufcl", m = 2, 
+                        rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
+
+habDat$n8W3.2 <- cmeans(envpred_norm %>% select(vars), 
+                        8, iter.max = 10000,verbose = TRUE, 
+                        dist = "euclidean", method = "ufcl", m = 2, 
+                        rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
+
+habDat$n6W3.3 <- cmeans(envpred_norm %>% select(vars), 
+                        6, iter.max = 100,verbose = FALSE, 
+                        dist = "euclidean", method = "ufcl", m = 2, 
+                        rate.par = 0.3, weights = req_var$rck01_prop)$cluster %>% as.factor()
+
 ########### PCA analysis ############################
 
 x <- princomp(envpred_norm[,2:15] %>% select(vars))
@@ -57,12 +72,12 @@ lapply(names(habDat)[11:19], function(j) autoplot(x, data = habDat, col = j,
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4))
 
-autoplot(x, data = habDat, col = "n8W3.2", 
+autoplot(x, data = habDat, col = "n8W3.1", 
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4)
 
 library(rgl)
-plot3d(x$scores[,1:3], col=habDat$n8W3)
+plot3d(x$scores[,1:3], col=habDat$n8W3.2)
 text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 ########### UNWEIGHTED UNSUPERVISED FUZZY c-MEANS ########################
