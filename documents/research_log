@@ -171,6 +171,20 @@ Decided on some next steps:
 4. Classify species based on whether their distributions are global or specific to the Antarctic; most species seem to fall cleanly in one of these two categories, and this should help us formulate an idea of the uniqueness/irreplaceability of individual assemblages. 
 
 
+29 June 2020
+Haven't written an update a quite a while, and a lot has occurred in that time. 
+The main developments are summarised here.
+
+Aleks has sent along SDMs of Antarctic 'functional' taxa. We have been talking about using these functional taxa as the main biotic unit of analysis, to avoid the huge variety and poor sampling of individual species, and also because ecosystem classifications for the Red List hinge on the functional characteristics of ecosystems. 
+
+Based on the suitability rasters from the SDMs, I've run a co-occurrence analysis on the functional groups. The interepretation is a bit different from normal co-occurrence stuff because these are pseudo-presences and the units are functional taxa, not species. The analysis clarified that Antarctic ecosystems are fundamentally nested, i.e. there's a gradient from suitable to non-suitable habitats which is along the same axis for most taxa; the most suitable sites have all the taxa while the least suitable sites have only the hardiest taxa. Nested sites are very difficult to classify, because there are no obvious cutoffs, and almost all pairs are aggregated. 
+
+Nonetheless, there were a few segregations, and taxa that had at least one segregation were used in a PCA analysis of the SDM pixels (based on suitability). The PCA confirmed the high nestedness of sites but also identified a few exceptions. Notably, a cluster of sites which are suitable for most taxa are not suitable for Ochrophytes (brown algae), a very hardy group. These sites turn out to be mostly in the Central South Antarctic Peninsula bioregion. 
+Similarly, another cluster of sites which are in the higher range of suitability for most species are not suitable for Tardigrades, another very hardy taxon.
+
+One possible approach is to set thresholds around the physiological limits of certain keystone species, such as vertebrates, mosses, or lichens. We need to explore these possibilities with the group. 
+
+
 
 
 
