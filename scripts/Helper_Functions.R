@@ -1,6 +1,7 @@
 
 library(sp)
 library(rlang)
+library(gmp)
 
 ##### DATA MANIPULATION #####
 ### Change character vectors in df to factors
@@ -112,6 +113,7 @@ simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
       occsi <- as.bigz(occs[i])
       occsj <- as.bigz(occs[j])
       ovl <- occs[i] + occs[j] - ncol(x)
+      
       #simpairs
       for (k in max(0, ovl):a){
        
