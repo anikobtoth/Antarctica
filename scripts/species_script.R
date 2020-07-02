@@ -11,8 +11,8 @@ occurrences <- read_csv("data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 occurrences <- occurrences %>% select(scientificName, vernacularName, 
                                       decimalLongitude, decimalLatitude, 
                                       ACBR_ID, ASPA_ID, Date, year, Publish_YEAR, 
-                                      kingdom, phylum , class, order, 
-                                      family, genus, species, Snap_IFA, 
+                                      Functional_group, kingdom, phylum , class, 
+                                      order, family, genus, species, Snap_IFA, 
                                       Dist_IFA, coordinateUncertaintyInMetres, 
                                       individualCount)
 
@@ -138,13 +138,10 @@ species <- melt(clustm %>% mutate(species = rownames(clustm))) %>%
   filter(value > 0) %>% 
   merge(cgroups %>% select(cluster, group), by.x = "variable", by.y = "cluster", all = TRUE)
 
-<<<<<<< HEAD
-sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE)
-sppDat <- unique(sppDat)
-=======
+
 sppDat <- merge(sppDat, species %>% select(species, group), by.x = "scientificName", by.y = "species", all = TRUE) %>% unique()
 table(sppDat$phylum, sppDat$group)[which(rowSums(table(sppDat$phylum, sppDat$group))>0),]
->>>>>>> 9bea7be958995c2f8af6b8c1442f2b98ff0a04f5
+
 # Calculate IFA habitats ####
 
 hab_IFA <- read_csv("./data/Habitats/Habitat_IFA_join.csv")
