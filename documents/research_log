@@ -177,7 +177,7 @@ The main developments are summarised here.
 
 Aleks has sent along SDMs of Antarctic 'functional' taxa. We have been talking about using these functional taxa as the main biotic unit of analysis, to avoid the huge variety and poor sampling of individual species, and also because ecosystem classifications for the Red List hinge on the functional characteristics of ecosystems. 
 
-Based on the suitability rasters from the SDMs, I've run a co-occurrence analysis on the functional groups. The interepretation is a bit different from normal co-occurrence stuff because these are pseudo-presences and the units are functional taxa, not species. The analysis clarified that Antarctic ecosystems are fundamentally nested, i.e. there's a gradient from suitable to non-suitable habitats which is along the same axis for most taxa; the most suitable sites have all the taxa while the least suitable sites have only the hardiest taxa. Nested sites are very difficult to classify, because there are no obvious cutoffs, and almost all pairs are aggregated. 
+Based on the suitability rasters from the conditional SDMs, I've run a co-occurrence analysis on the functional groups (threshold for presence top 50% of suitability range). The interepretation is a bit different from normal co-occurrence stuff because these are pseudo-presences and the units are functional taxa, not species. The analysis clarified that Antarctic ecosystems are fundamentally nested, i.e. there's a gradient from suitable to non-suitable habitats which is along the same axis for most taxa; the most suitable sites have all the taxa while the least suitable sites have only the hardiest taxa. Nested sites are very difficult to classify, because there are no obvious cutoffs, and almost all pairs are aggregated. 
 
 Nonetheless, there were a few segregations, and taxa that had at least one segregation were used in a PCA analysis of the SDM pixels (based on suitability). The PCA confirmed the high nestedness of sites but also identified a few exceptions. Notably, a cluster of sites which are suitable for most taxa are not suitable for Ochrophytes (brown algae), a very hardy group. These sites turn out to be mostly in the Central South Antarctic Peninsula bioregion. 
 Similarly, another cluster of sites which are in the higher range of suitability for most species are not suitable for Tardigrades, another very hardy taxon.
@@ -185,8 +185,44 @@ Similarly, another cluster of sites which are in the higher range of suitability
 One possible approach is to set thresholds around the physiological limits of certain keystone species, such as vertebrates, mosses, or lichens. We need to explore these possibilities with the group. 
 
 
+6 July 2020
+
+A meeting of the full research group has been scheduled for July 10th at 10am. 
+Agenda: 
+1.	Introductions
+2.	Review of proposal and project phases 
+3.	Update on Antarctic typology, and discussion of approaches.
+4.	Discussion of data for risk assessments, particularly time series data, and how we can collect these.
+5.	Things to start thinking about 
+   a.	Extending analyses to include the marine shelf
+   b.	What roles do people want to take in the project?
+   c.	Rough timeline for completing typology component
 
 
+Progress on analyses: 
+I changed to using the non-conditional SDMs, as suggested by Aleks.
 
+Aleks reviewed the SDM results to clarify previous ambiguities about which models were reliable. This resulted in the exclusion of 9 unreliable models: 
 
+Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae,
+Chordata_Aves_Procellariiformes___,
+Arthropoda_Entognatha_Poduromorpha___,
+Bryophyta_Bryopsida_Grimmiales___,
+Cyanobacteria_____,
+Tardigrada_____,
+Marchantiophyta_____,
+Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__, and
+Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__.
+
+The co-occurrence analysis was run again using SDM-based pseduopresences, but with the threshold raised to 0.85 of the suitability range for a pseudo-presence. All of these changes together resulted in even fewer segregations than before. 
+
+I also repeated the PCA with all of the reliable models, rather than just those that produce segregations. The results show a greater range of variability in the loadings, while still supporting the notion of a nested community structure. 
+
+Finally, I performed a spatial join on the habitat and SDM pixels (SDM pixels contain 4x habitat pixels each). I aggregated the data from habitat pixels to produce climatic/environmental estimates for each SDM pixel. I then performed the cmeans algorithm on the SDM pixels instead. 
+
+Interestingly, the cmeans algorithm seems to produce very messy results for clusters (when summarised using a PCA space), however, the output clusters are much more consistent than for the habitat clusters, and the algorithm converges after much fewer iterations. This seems to suggest that the output clusters when using SDM pixels are not as arbitrary as we feared. On the other hand, the messy results make the habitats harder to interpret. I am not sure why the results are so messy, given that only the previously determined subset of abiotic variables was included. 
+
+I have also integrated the new SDM pixel-based habitat clusters on the PCA space produced by the suitability maps. The output shows some interesting patterns, although it is still pretty messy.                                                         
+
+The PCA results suggest a divide between the Antarctic peninsula and the mainland, though the clusters are not consistently separated. The loadings suggest that functional groups arrange themselves in 5 distinct groups of suitability. Group 1 prefers the peninsula over the mainland and requires proximity to the coast. Group 5 (Ochrophyta all by itself) prefers the mainland to the peninsula. The others are in between. Groups 3 and 4 distinctly prefer some particular aspect of both the mainland and peninsula. 
 
