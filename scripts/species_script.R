@@ -11,17 +11,18 @@ occurrences <- read_csv("data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 occurrences <- occurrences %>% select(scientificName, vernacularName, 
                                       decimalLongitude, decimalLatitude, 
                                       ACBR_ID, ASPA_ID, Date, year, Publish_YEAR, 
-                                      Functional_group, kingdom, phylum , class, 
+                                      kingdom, phylum , class, 
                                       order, family, genus, species, Snap_IFA, 
                                       Dist_IFA, coordinateUncertaintyInMetres, 
                                       individualCount)
 
-## Species data ####
-sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
-                                 class, order_, family, genus, species) %>% unique()
 
 # Occurrence in ice-free areas (Ice-free patches as sites).
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
+
+## Species data ####
+sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
+                         class, order_, family, genus, species) %>% unique()
 
 
 PA0 <- occ %>% select(scientific, Functional_group, OBJECTID, ACBR_Name, phylum, year) %>% 
