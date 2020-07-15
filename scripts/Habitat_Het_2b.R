@@ -17,7 +17,7 @@ req_var = fread("./data/Habitats/req_var.csv")
 envpred_norm = fread("./data/Habitats/envpred_norm.csv")
 
 # read in habitat data (ACBR join)
-habDat <- read_csv("data/Habitats/Hab8_ACBR_join.csv")
+habDat <- read_csv("./data/Habitats/Hab8_ACBR_join.csv")
 
 ########### cmeans analysis ############################
 

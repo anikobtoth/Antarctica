@@ -17,14 +17,14 @@ occurrences <- occurrences %>% select(scientificName, vernacularName,
                                       individualCount)
 
 ## Species data ####
-sppDat <- occurrences %>% select(scientificName, vernacularName, Functional_group, kingdom, phylum, 
-                                 class, order, family, genus, species) %>% unique()
+sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
+                                 class, order_, family, genus, species) %>% unique()
 
 # Occurrence in ice-free areas (Ice-free patches as sites).
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
 
-PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, phylum, year) %>% 
+PA0 <- occ %>% select(scientific, Functional_group, OBJECTID, ACBR_Name, phylum, year) %>% 
   filter(#year > 1960 & 
     OBJECTID > 0, !phylum %in% c("Unknown", "Not assigned"))
 PA0 <- PA0[-grep(" cf. " ,PA0$scientific),]
@@ -40,7 +40,7 @@ Abund <- PA0 %>% split(.$phylum) %>%
   lapply(namerows)
 Abund <- Abund[!map_lgl(Abund, ~dim(.) %>% is.null())] %>% purrr::map(clean.empty, mincol = 2, minrow = 2)
 Abund <- Abund[map_lgl(Abund, ~nrow(.)>=2 && ncol(.) >= 5)]
-
+Abund <- Abund[!map_lgl(Abund, is.null)]
 PA <- tobinary(Abund) %>% lapply(clean.empty, mincol = 2, minrow = 2)
 
 ## pairs analysis on assemblages ####
@@ -156,26 +156,20 @@ master$ecogroup <- paste0("hab", master$dom_habitat, "_grp", master$grp.count)
 master$ecogroup <- paste0("hab", master$dom_habitat, "_asm", master$grp.count)
 
 masterg <- master %>% group_by(dom_habitat, grp.count, decade) %>% summarise(count = length(count))
-<<<<<<< HEAD
-ggplot(masterg, aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + 
-=======
+
+
 ggplot(masterg %>% filter(!grp.count == ""), aes(y = count, axis1 = dom_habitat, axis2 = grp.count)) + 
->>>>>>> 9bea7be958995c2f8af6b8c1442f2b98ff0a04f5
   geom_alluvium(aes(fill = decade), width = 1/12) + 
   geom_stratum(width = 1/12, fill = "gray", color = "white") + 
   geom_label(stat = "stratum", infer.label= TRUE) + 
   scale_x_discrete(limits = c("habitat", "assemblage"), expand = c(0.05, 0.05)) + 
-<<<<<<< HEAD
-  scale_fill_brewer(type = "qual", palette = "Set1")
-#####
-#####
-=======
-  scale_fill_brewer(type = "qual", palette = "Set1") +
+  scale_fill_brewer(type = "qual", palette = "Set1")+
   ggtitle("Distribution of typical assemblages in typical habitats by decade")
 
 
 ## Classify IFAs that weren't used to generate groups.
 groups <- split(sppDat$scientificName, f = sppDat$group)
+
 # TODO: redo Abund without getting rid of undated occurrences; may help classify some IFAs, even if it's without any temporal resolution.
 PA <- tobinary(Abund) %>% lapply(clean.empty)
 
@@ -194,15 +188,17 @@ ecogroups$ecogroup <- paste0("hab", ecogroups$dom_habitat, "_grp", ecogroups$gro
 
 # All together, Not by decade ####
 
-PA1 <- PA0 %>% reshape2::dcast(scientific~OBJECTID, fun.aggregate = length, value.var = "year") %>% namerows() %>% clean.empty(mincol = 5, minrow = 2)
+PA1 <- PA0 %>% reshape2::dcast(Functional_group~OBJECTID, fun.aggregate = length, value.var = "year") %>% namerows() %>% clean.empty(mincol = 5, minrow = 6)
 pairs1 <- simpairs(PA1)
 el1 <- dist2edgelist(pairs1, PA1)
-g1 <- el1 %>% filter(Z.Score > quantile(Z.Score, 0.985, na.rm = T)) %>% 
+g1 <- el1 %>% filter(Z.Score > quantile(Z.Score, 0.50, na.rm = T)) %>% 
   graph_from_data_frame(directed = F)
-#g1 <- delete_edges(g1, e = E(g1)[which(E(g1)$Z.Score < quantile(E(g1)$Z.Score, 0.985, na.rm = T))])
+g1 <- delete_edges(g1, e = E(g1)[which(E(g1)$Z.Score < quantile(E(g1)$Z.Score, 0.90, na.rm = T))])
 l <- layout_with_graphopt(g1)
 plot(g1, vertex.label = NA, vertex.size = 4, layout = l)
-cl1 <- cluster_(g1, weights = E(g1)$Z.Score)
+cl1 <- cluster_fast_greedy(g1, weights = E(g1)$Z.Score)
+
+plot(g1, vertex.label = NA, vertex.size = 4, layout = l, vertex.color = cl1$membership)
 
 ##### Sub-clusters within major assemblage groups ####
 PAg <- lapply(groups, function(x) PA[x,]) %>% lapply(clean.empty)
@@ -214,6 +210,5 @@ gg <- elg %>% purrr::map(filter, Z.Score > quantile(Z.Score, 0.9, na.rm = T)) %>
 
 modg <- purrr::map(gg, ~cluster_fast_greedy(., weights = E(.)$Z.Score))
 
->>>>>>> 9bea7be958995c2f8af6b8c1442f2b98ff0a04f5
-#####
+
 #####

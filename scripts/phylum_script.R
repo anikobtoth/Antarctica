@@ -24,9 +24,9 @@ sppDat <- occurrences %>% select(scientificName, vernacularName, kingdom, phylum
 occ <- read_csv("data/Species/Spp_iceFree_occ.csv")
 
 
-PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, phylum, year) %>% 
+PA0 <- occ %>% select(scientific, OBJECTID, ACBR_Name, Functional_group, year) %>% 
   filter(#year > 1960 & 
-    OBJECTID > 0, !phylum %in% c("Unknown", "Not assigned"))
+    OBJECTID > 0, !Functional_group %in% c("Unknown", "Not assigned"))
 PA0 <- PA0[-grep(" cf. " ,PA0$scientific),]
 PA0 <- PA0[-grep(" sp." ,PA0$scientific),]
 
