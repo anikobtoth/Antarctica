@@ -226,3 +226,26 @@ I have also integrated the new SDM pixel-based habitat clusters on the PCA space
 
 The PCA results suggest a divide between the Antarctic peninsula and the mainland, though the clusters are not consistently separated. The loadings suggest that functional groups arrange themselves in 5 distinct groups of suitability. Group 1 prefers the peninsula over the mainland and requires proximity to the coast. Group 5 (Ochrophyta all by itself) prefers the mainland to the peninsula. The others are in between. Groups 3 and 4 distinctly prefer some particular aspect of both the mainland and peninsula. 
 
+15 July 2020
+
+Large group meeting 10 July at 10am. Everyone was there except Steven Chown (Aleks, David, Justine, Johnny, Nick, and myself).
+
+Presented data, spatial units, and typology work so far. 
+Suggestions from the group: 
+
+(1) Use supervised classification method, use biotic clusters as a training set for classification of abiotic clusters. 
+(2) Use both biotic and abiotic variables as in Lyons et al. 2017. 
+(3) Look at the interaction of habitat clusters by ACBR; combine them into groups if warranted by species or functional group occurrences.
+(4) In general, lumping oversplit typology with expert input. 
+(5) Resolve cmeans by performing multiple cmeans runs and looking for consensus between them. 
+
+Target 40-60 units, definitely more than 20 and less than 100. 
+Target spatial resolution 1km pixels.
+
+David to share slides and notes with the group post-meeting. 
+Aniko to continue following up with Aleks. 
+
+Post meeting: 
+Yesterday I followed up on point (3) above; 81 units with more than 20 pixels assigned to them resulted; 60 of these had species occurrences recorded in them. Network analysis of similarity between units using occurrence of functional groups within units suggested a classification where the 60 units were lumped into 48 clusters (most units in a group by themselves).
+
+Still might try points (1) and (2) above.
