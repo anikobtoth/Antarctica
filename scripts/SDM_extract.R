@@ -173,13 +173,12 @@ PA1 <- reshape2::dcast(t, Functional_group~unit, fun.aggregate = length, value.v
   na.omit() %>% namerows()
 PA <- tobinary.single(PA1)
 tPA <- t(PA)
-pairs <- simpairs(tPA)
-el <- dist2edgelist(pairs, tPA)
-g <- el %>% dplyr::filter(Z.Score > quantile(Z.Score, 0.2, na.rm = T)) %>% 
-  graph_from_data_frame(directed = F)
-cl <- cluster_fast_greedy(g)
+g <- network_analysis(tPA, threshold = 0.985)
+p <- cmeans_pca(tPA %>% data.frame(), 
+                vars = names(tPA %>% data.frame())[colSums(tPA) %>% order(decreasing = TRUE) %>% `[`(1:60)], 
+                iter = 10000, groups = 40)
 
-plot(g, vertex.label = NA, vertex.size = 6, vertex.color = cl$membership)
+p[[4]]
 ##################
 ##############
 #############

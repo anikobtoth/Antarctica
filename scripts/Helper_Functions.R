@@ -134,6 +134,34 @@ simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
   return(as.dist(z, diag = F, upper = F))
 }
 
+cmeans_pca <- function(x, vars=names(x), groups=6, weights=1, iter = 1000){
+  clust <- cmeans(x %>% select(vars), 
+         groups, iter.max = iter, verbose = TRUE, 
+         dist = "euclidean", method = "ufcl", m = 2, 
+         rate.par = 0.3, weights = weights)
+
+  pca <- princomp(x %>% select(vars)) 
+  
+  x$clust <- clust$cluster %>% as.factor()
+  
+  plot <- autoplot(pca, data =x , col = "clust", 
+           loadings = TRUE, loadings.label = TRUE, 
+           loadings.label.size = 2)
+  
+  return(list(clust, pca, x, plot))
+}
+
+network_analysis <- function(x, threshold = 0.8){
+  pairs <- simpairs(x)
+  el <- dist2edgelist(pairs, x)
+  g <- el %>% #dplyr::filter(Z.Score > quantile(Z.Score, threshold, na.rm = T)) %>% 
+    graph_from_data_frame(directed = F)
+  g <- delete_edges(g, E(g)[which(E(g)$Z.Score < quantile(E(g)$Z.Score, threshold, na.rm = T))])
+  clust <- cluster_fast_greedy(g, weights = E(g)$Z.Score)
+  plot(g, vertex.label = NA, vertex.size = 6, vertex.color = clust$membership)
+  return(g)
+}
+
 ### Forbes index functions by J. Alroy ###
 ##### Available from http://bio.mq.edu.au/~jalroy/Forbes.R ###
 ##### help page http://bio.mq.edu.au/~jalroy/Forbes.html ###
