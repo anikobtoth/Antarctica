@@ -61,7 +61,6 @@ dist2edgelist <- function(z, sppDat){  #edge list with link types attached
   return(k3)
 }
 
-
 ##### ANALYSES ######
 # FETmP
 simpairs <- function(x){ #simpairs function, simpairs only out
@@ -157,7 +156,7 @@ network_analysis <- function(x, threshold = 0.8){
   g <- el %>% #dplyr::filter(Z.Score > quantile(Z.Score, threshold, na.rm = T)) %>% 
     graph_from_data_frame(directed = F)
   g <- delete_edges(g, E(g)[which(E(g)$Z.Score < quantile(E(g)$Z.Score, threshold, na.rm = T))])
-  clust <- cluster_fast_greedy(g, weights = E(g)$Z.Score)
+  clust <- cluster_fast_greedy(g) #weights = E(g)$Z.Score)
   plot(g, vertex.label = NA, vertex.size = 6, vertex.color = clust$membership)
   return(g)
 }

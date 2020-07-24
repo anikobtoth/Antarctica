@@ -36,12 +36,9 @@ Abund <- PA0 %>% split(.$year %/% 10) %>%
   lapply(namerows) %>%
   purrr::map(clean.empty, mincol = 5, minrow = 2)
 
-Abund <- PA0 %>% split(.$phylum) %>% 
-  lapply(reshape2::dcast, scientific~OBJECTID, fun.aggregate = length, value.var = "phylum") %>%
-  lapply(namerows)
 Abund <- Abund[!map_lgl(Abund, ~dim(.) %>% is.null())] %>% purrr::map(clean.empty, mincol = 2, minrow = 2)
 Abund <- Abund[map_lgl(Abund, ~nrow(.)>=2 && ncol(.) >= 5)]
-Abund <- Abund[!map_lgl(Abund, is.null)]
+#Abund <- Abund[!map_lgl(Abund, is.null)]
 PA <- tobinary(Abund) %>% lapply(clean.empty, mincol = 2, minrow = 2)
 
 ## pairs analysis on assemblages ####

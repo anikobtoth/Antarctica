@@ -2,6 +2,7 @@ library(raster)
 library(tidyverse)
 library(ggfortify)
 library(rgl)
+library(parallel)
 
 l <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE) %>% 
   file.path("trend_basedist0.tif")
@@ -10,6 +11,7 @@ n <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE, fu
 SDMs <- stack(l)
 crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 v <- getValues(SDMs) %>% data.frame() %>% na.omit()
+v <- apply(v, 2, function(x) (x-min(x))/(max(x)-min(x)))
 names(v) <- n
 
 bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
@@ -22,16 +24,15 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
                 
-                
+# get coordinates of pixels
+pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame() %>% mutate(cell = rownames(v))
 
+### Pseudo presences network analysis #####
 # Calculate thresholds at top 20% of output suitability range.
 thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
 
 # number of suitable pixels by group
 sapply(1:34, function(i) length(which(scale(v[,i]) >= thresh[i]))) %>% setNames(n)
-
-# get coordinates of pixels
-pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame() %>% mutate(cell = rownames(v))
 
 # Produce pseudo-presence table
 PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
@@ -47,7 +48,7 @@ elp <- el %>% filter(Z.Score > 0.5)
 
 gn <- graph_from_data_frame(eln, directed= FALSE)
 
-### SDm and HAbitat pixels join
+### Prepare pixel data ########
 load("E:/Antarctica/Antarctica/data/spatialUnits.RData")
 t <- read_csv("E:/Antarctica/Data/IFA_Hab_SDM_join.txt")
 t <- t %>% select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
@@ -58,51 +59,123 @@ sdmPix_env <- t %>% select(HabPix, SdmPix) %>%
   summarise_all(mean) %>% select(-HabPix) 
 
 sdmPix_weights <- merge(req_var %>% select(V1, rck01_prop), spatialUnits %>% select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
-vars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind", "rad")
+v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% 
+  merge(v1, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
 
-sdm_hcl <- cmeans(sdmPix_env %>% select(vars), 
-                  7, iter.max = 10000, verbose = TRUE, 
-                  dist = "euclidean", method = "ufcl", m = 2, 
-                  rate.par = 0.3, weights = sdmPix_weights$weight)
-  
-sdmPix_weights$hcl7W.3 <- sdm_hcl$cluster %>% as.factor()
+abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
+bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiaceae__", "Rotifera_____", "Ascomycota_Lecanoromycetes_Not assigned_Rhizocarpaceae__", "Arthropoda_Arachnida_Mesostigmata___")
 
-x <- princomp(sdmPix_env %>% select(vars)) 
+vars <- c(abvars)
 
-autoplot(x, data =sdmPix_weights , col = "hcl7W.3", 
+### Multiple cmeans consensus analysis #####
+cldat <- v1 %>% select(all_of(vars)) %>% na.omit()
+centers <- 8
+itmx <- 10000
+
+cl <- makeCluster(detectCores()-2)
+clusterExport(cl, c("cldat", "sdmPix_weights", "centers", "itmx"))
+clusterEvalQ(cl, 
+             library(e1071))
+
+sdm_hcl <- parLapply(cl, 1:100, function(x) cmeans(cldat, centers = centers, iter.max = itmx, 
+                     verbose = FALSE, dist = "euclidean", method = "ufcl", 
+                     m = 2, rate.par = 0.3, weights = sdmPix_weights$weight))
+
+stopCluster(cl)
+
+sdmPix_weights <-  data.frame(sdmPix_weights, map(sdm_hcl, ~as.factor(.$cluster)) %>% reduce(data.frame)) %>%
+  setNames(c(names(sdmPix_weights), paste0("hcl", centers, "W", 1:length(sdm_hcl), ".itmx", itmx)))
+            
+out <- lapply(data.frame(combn(3:ncol(sdmPix_weights), 2)), 
+      function(y) table(sdmPix_weights[,y[1]], 
+                        sdmPix_weights[,y[2]]) %>% 
+        apply(1, function(x) c(which.max(x), max(x)/sum(x))) %>% t()) %>%
+  setNames(sapply(data.frame(combn(3:ncol(sdmPix_weights), 2)), 
+                  function(y) paste(y[1], y[2], sep = "_")) ) %>% 
+  map(~data.frame(first = 1:nrow(.), .)) %>% bind_rows(.id = "reps") %>%
+  separate(reps, into = c("repA", "repB"), sep = "_") %>% 
+  mutate(cl1 = paste(repA, first, sep = "_"),
+         cl2 = paste(repB, X1, sep = "_")) %>%
+  select(cl1, cl2, X2)
+
+g <- out %>% graph_from_data_frame(directed = F)
+g <- delete.edges(g, E(g)[which(E(g)$X2 < 0.80)])
+plot(g, vertex.size = 7)
+cl <- cluster_fast_greedy(g, weights = E(g)$X2)
+l <- layout_nicely(g)
+plot(g, vertex.size = 4, vertex.color = cl$membership, vertex.label = NA, layout = l)
+
+cons <- data.frame(row.names = V(g)$name, consensus = cl$membership)
+cons_class <- lapply(25:ncol(sdmPix_weights), function(x) paste(x, sdmPix_weights[,x], sep = "_")) %>%
+  lapply(function(x) cons[as.character(x),1]) %>% reduce(data.frame)
+
+test <- apply(cons_class, 1, table)
+sdmPix_weights$consensus <- test %>% sapply(which.max) %>% names()
+sdmPix_weights$agreement <- test %>% sapply(max)
+
+x <- princomp(cldat %>% select(vars)) 
+
+autoplot(x, data =sdmPix_weights , col = "consensus", 
          loadings = TRUE, loadings.label = TRUE, 
          loadings.label.size = 5, alpha = 0.4)
 
-plot3d(x$scores[,1:3], col=sdmPix_weights$hcl8W.1)
+plot3d(x$scores[,1:3], col=sdmPix_weights$consensus)
 text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 
-#### 
-# PCA of SDM pixels based on suitability of functional groups
-vars <- c(el$Sp1, el$Sp2) %>% unique()
+## ACBR interaction SDMpix 7 habclusters ######################
+sppSDMpix <- readRDS("E:/Antarctica/Antarctica/data/Species/Spp_SDMpix_occ.rds")
+
+test <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by.x = "SdmPix", by.y = "id", all.x = TRUE)
+test <- merge(test, sppSDMpix, by.x = "SdmPix", by.y = "pointid")
+test$unit <- paste(test$ACBR_Name.x, test$consensus, sep = "_")
+
+sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
+                         class, order_, family, genus, species) %>% unique()
+t <- merge( sppDat %>% select(scientific, Functional_group),test, all.y = TRUE)
+
+PA1 <- reshape2::dcast(t, Functional_group~unit, fun.aggregate = length, value.var = "SdmPix") %>%
+  na.omit() %>% namerows()
+PA <- tobinary.single(PA1)
+tPA <- t(PA)
+g <- network_analysis(tPA, threshold = 0.985)
+p <- cmeans_pca(tPA %>% data.frame(), 
+                vars = names(tPA %>% data.frame())[colSums(tPA) %>% order(decreasing = TRUE) %>% `[`(1:60)], 
+                iter = 10000, groups = 40)
+
+p[[4]]
+##################
+####### OLD STUFF #######
+
+#### # PCA of SDM pixels based on suitability of functional groups #####
+vars <- n[which(!n %in% bad_models)]
 v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% merge(v, by.x = "cell", by.y = 0, all =TRUE)
 v2 <- merge(sdmPix_env, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% merge(v, by.x = "cell", by.y = 0, all =TRUE)
 
 x <- princomp(scale(v[,vars]))
+temp <- x$loadings
+matrix(as.numeric(temp), attributes(temp)$dim, dimnames = attributes(temp)$dimnames) %>% 
+  data.frame() %>% select(1:3) %>% abs() %>% rowSums() %>% sort()
+
+
 autoplot(x, data = v1, col = "hcl8W.1", loadings = TRUE, 
-         loadings.label = TRUE, loadings.label.size = 3, alpha = 0.4) #+
-  #scale_color_manual(values = c(NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, NA, "red", "blue", "forestgreen", NA))
+         loadings.label = TRUE, loadings.label.size = 3, alpha = 0.4)
 
 cm6 <- cmeans(v[,vars], centers = 6, #v[c(18644, 10258, 36573, 63187, 48772, 54463),vars], 
-             iter.max = 10000,verbose = TRUE, 
-             dist = "euclidean", method = "ufcl", m = 2, 
-             rate.par = 0.3, weights = 1)
+              iter.max = 10000,verbose = TRUE, 
+              dist = "euclidean", method = "ufcl", m = 2, 
+              rate.par = 0.3, weights = 1)
 d <- data.frame(cl6 = cm6$cluster)
 
 autoplot(x, data = d, col = "cl6" , loadings = TRUE, 
          loadings.label = TRUE, loadings.label.size = 3, alpha = 0.6) #+
-  scale_color_manual(values = c(NA, "red"))
-  
-  plot3d(x$scores[,1:3], col=d$cl6)
-  text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
-  
+scale_color_manual(values = c(NA, "red"))
 
-i <- 25
+plot3d(x$scores[,1:3], col=d$cl6)
+text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
+
+
+i <- 1
 autoplot(x, data = v1, col = vars[i] , loadings = TRUE, 
          loadings.label = TRUE, loadings.label.size = 3, alpha = 0.6) + 
   labs(col = "Suitability")+
@@ -137,9 +210,9 @@ d$High_Ochr_Tar_Cyan <- v$Ochrophyta_____ > -7 &
 
 # Areas that birds can't survive in
 d$Low_Chord  <- v$Chordata_Aves_Procellariiformes___ < mean(range(v$Chordata_Aves_Procellariiformes___)) &
-                 v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae)) &
-                  v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_antarctica < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_antarctica)) &
-                   v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_papua < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_papua))
+  v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae)) &
+  v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_antarctica < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_antarctica)) &
+  v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_papua < mean(range(v$Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_papua))
 sdmPix_sub <- merge(sdmPix_env, sdmPix, by.x = "SdmPix", by.y = "id")
 
 a <- merge(sdmPix_sub, d, by.x = "cell", by.y = 0, all = TRUE)
@@ -156,30 +229,5 @@ for(i in 1:length(n)) autoplot(x, data = v,
                                alpha = 0.3) + labs(col = "Suitability") + ggtitle(n[i])
 
 
-
-
-## ACBR interaction SDMpix 7 habclusters ######################
-sppSDMpix <- readRDS("E:/Antarctica/Antarctica/data/Species/Spp_SDMpix_occ.rds")
-
-test <- merge(sdmPix_weights, sdmPix, by.x = "SdmPix", by.y = "id", all.x = TRUE)
-test <- merge(test, sppSDMpix, by.x = "SdmPix", by.y = "pointid")
-test$unit <- paste(test$ACBR_Name.x, test$hcl7W.3, sep = "_")
-
-sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
-                         class, order_, family, genus, species) %>% unique()
-t <- merge( sppDat %>% select(scientific, Functional_group),test, all.y = TRUE)
-
-PA1 <- reshape2::dcast(t, Functional_group~unit, fun.aggregate = length, value.var = "SdmPix") %>%
-  na.omit() %>% namerows()
-PA <- tobinary.single(PA1)
-tPA <- t(PA)
-g <- network_analysis(tPA, threshold = 0.985)
-p <- cmeans_pca(tPA %>% data.frame(), 
-                vars = names(tPA %>% data.frame())[colSums(tPA) %>% order(decreasing = TRUE) %>% `[`(1:60)], 
-                iter = 10000, groups = 40)
-
-p[[4]]
-##################
-##############
 #############
 
