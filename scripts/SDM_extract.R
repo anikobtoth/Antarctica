@@ -3,6 +3,11 @@ library(tidyverse)
 library(ggfortify)
 library(rgl)
 library(parallel)
+library(e1071)
+library(data.table)
+library(igraph)
+library(fields)
+source('./scripts/Helper_Functions.R')
 
 l <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE) %>% 
   file.path("trend_basedist0.tif")
@@ -10,9 +15,9 @@ n <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE, fu
 
 SDMs <- stack(l)
 crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
-v <- getValues(SDMs) %>% data.frame() %>% na.omit()
+v <- getValues(SDMs) %>% data.frame() %>% na.omit() %>% setNames(n)
 v <- apply(v, 2, function(x) (x-min(x))/(max(x)-min(x)))
-names(v) <- n
+
 
 bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Chordata_Aves_Procellariiformes___",
@@ -27,29 +32,13 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
 # get coordinates of pixels
 pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame() %>% mutate(cell = rownames(v))
 
-### Pseudo presences network analysis #####
-# Calculate thresholds at top 20% of output suitability range.
-thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
-
-# number of suitable pixels by group
-sapply(1:34, function(i) length(which(scale(v[,i]) >= thresh[i]))) %>% setNames(n)
-
-# Produce pseudo-presence table
-PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
-  apply(2, as.numeric) %>% t() %>% data.frame()
-rownames(PA) <- n
-#PA[-rownames(PA) %in% bad_models,]
-
-pairs <- simpairs_lgnum(PA)
-el <- dist2edgelist(pairs, PA)
-
-eln <- el %>% filter(Z.Score < 0.5)
-elp <- el %>% filter(Z.Score > 0.5)
-
-gn <- graph_from_data_frame(eln, directed= FALSE)
-
 ### Prepare pixel data ########
+req_var = fread("./data/Habitats/req_var.csv")
+
+envpred_norm = fread("./data/Habitats/envpred_norm.csv")
+
 load("E:/Antarctica/Antarctica/data/spatialUnits.RData")
+load("E:/Antarctica/Antarctica/data/DB_sdmPix.Rdata")
 t <- read_csv("E:/Antarctica/Data/IFA_Hab_SDM_join.txt")
 t <- t %>% select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
 
@@ -60,7 +49,7 @@ sdmPix_env <- t %>% select(HabPix, SdmPix) %>%
 
 sdmPix_weights <- merge(req_var %>% select(V1, rck01_prop), spatialUnits %>% select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
 v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% 
-  merge(v1, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
+  merge(v, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
 
 abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
 bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiaceae__", "Rotifera_____", "Ascomycota_Lecanoromycetes_Not assigned_Rhizocarpaceae__", "Arthropoda_Arachnida_Mesostigmata___")
@@ -113,7 +102,7 @@ test <- apply(cons_class, 1, table)
 sdmPix_weights$consensus <- test %>% sapply(which.max) %>% names()
 sdmPix_weights$agreement <- test %>% sapply(max)
 
-x <- princomp(cldat %>% select(vars)) 
+x <- princomp(cldat %>% select(all_of(vars))) 
 
 autoplot(x, data =sdmPix_weights , col = "consensus", 
          loadings = TRUE, loadings.label = TRUE, 
@@ -125,27 +114,111 @@ text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 ## ACBR interaction SDMpix 7 habclusters ######################
 sppSDMpix <- readRDS("E:/Antarctica/Antarctica/data/Species/Spp_SDMpix_occ.rds")
+occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
-test <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by.x = "SdmPix", by.y = "id", all.x = TRUE)
-test <- merge(test, sppSDMpix, by.x = "SdmPix", by.y = "pointid")
-test$unit <- paste(test$ACBR_Name.x, test$consensus, sep = "_")
+pointoccs <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by.x = "SdmPix", by.y = "id", all.x = TRUE)
+pointoccs <- merge(pointoccs, sppSDMpix, by.x = "SdmPix", by.y = "pointid")
+pointoccs$unit <- paste(pointoccs$ACBR_Name.x, pointoccs$consensus, sep = "_")
 
 sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
                          class, order_, family, genus, species) %>% unique()
-t <- merge( sppDat %>% select(scientific, Functional_group),test, all.y = TRUE)
+t <- merge( sppDat %>% select(scientific, Functional_group),pointoccs, all.y = TRUE)
 
 PA1 <- reshape2::dcast(t, Functional_group~unit, fun.aggregate = length, value.var = "SdmPix") %>%
   na.omit() %>% namerows()
 PA <- tobinary.single(PA1)
 tPA <- t(PA)
 g <- network_analysis(tPA, threshold = 0.985)
-p <- cmeans_pca(tPA %>% data.frame(), 
-                vars = names(tPA %>% data.frame())[colSums(tPA) %>% order(decreasing = TRUE) %>% `[`(1:60)], 
-                iter = 10000, groups = 40)
 
-p[[4]]
+consensus <- merge(v1 %>% select(SdmPix, cell, weight, x, y, ACBR_Name), 
+                   sdmPix_weights %>% select(SdmPix, consensus, agreement), all = TRUE) %>%
+  mutate(unit = interaction(ACBR_Name, consensus, sep = "_"))
+units <- data.frame(unit = V(g[[1]])$name, consensus2 = g[[2]]$membership) %>% 
+  merge(consensus, by = "unit", all = TRUE)
+
+# units without point occurrences receive their own consensus2 category.
+units$consensus2[is.na(units$consensus2)] <- units$unit[is.na(units$consensus2)] %>% as.character %>% 
+  as.factor() %>% as.numeric() %>% `+`(max(units$consensus2, na.rm = TRUE))
+
+## Third consensus this time using SDM pseduopresences ####
+# used to classify pixels with no environmental data and merge units which are too small #
+thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
+PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
+    apply(2, as.numeric) %>% data.frame() %>% setNames(n)
+rownames(PA) <- rownames(v)
+PA <- PA %>% select(n[which(!n %in% bad_models)])
+
+PA <- merge(units %>% select(cell, consensus2), PA, by.x = "cell", by.y = 0)
+PA1 <- PA[is.na(PA$consensus2),] %>% namerows() %>% select(-consensus2)
+PA <- PA %>% na.omit() %>% namerows() %>% group_by(consensus2) %>% 
+  summarise_all(sum) %>% select(-consensus2)
+PA <- tobinary.single(PA)
+
+## Match unclassified pixels to most similar unit ####
+contable <- apply(PA1, 1, function(x) apply(PA, 1, function(y) rbind(x, y) %>% cont_table)) %>% 
+  map(bind_rows, .id = "unit") %>% bind_rows(.id = "cell") %>% select(-Sp1, -Sp2)
+
+contable$score <- FETmP(contable)
+
+neighbors <- contable %>% group_by(cell) %>% 
+  summarise(unit1 = which.max(score), 
+            unit2 = unit[order(score, decreasing = TRUE)][2],
+            unit3 = unit[order(score, decreasing = TRUE)][3],
+            unit4 = unit[order(score, decreasing = TRUE)][4],
+            unit5 = unit[order(score, decreasing = TRUE)][5]) %>%
+  sapply(as.numeric) %>% data.frame()
+
+i <- 3401
+plot(y~x, data = sdmPix, pch = 16, cex = 0.1)
+points(y~x, data = units %>% filter(consensus2 == 43), col = "blue", pch = 3, cex = 1)
+points(y~x, data = sdmPix %>% filter(cell == neighbors$cell[1]), col = "red", pch = 3)
+
+## Spatially nearest units ###
+
+# get lat longs to use rdist.earth properly
+sdmPix_spt <- SpatialPointsDataFrame(coords = cbind(units$x, units$y), 
+                                     data = units, proj4string = crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+
+sdmPix_wgs <- spTransform(sdmPix_spt, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+units <- data.frame(units, coordinates(sdmPix_wgs))
+names(units)[11:12] <- c("lon", "lat")
+
+u <- list()
+for(i in 1:nrow(neighbors)){
+  p <- units %>% filter(cell == neighbors$cell[i]) %>% select(lon, lat)
+  u[[i]] <- units %>% filter(consensus2 %in% neighbors[i, 2:6]) %>% 
+  select(consensus2, lon, lat) %>% split(.$consensus2) %>% 
+    sapply(function(z) rdist.earth(p, z %>% select(lon, lat), miles = F) %>% min())
+  print(u[[i]])
+}
+
+### reduce to small pixels ####
+
+
+
 ##################
 ####### OLD STUFF #######
+### Pseudo presences network analysis #####
+# Calculate thresholds at top 20% of output suitability range.
+thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
+
+# number of suitable pixels by group
+sapply(1:34, function(i) length(which(scale(v[,i]) >= thresh[i]))) %>% setNames(n)
+
+# Produce pseudo-presence table
+PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
+  apply(2, as.numeric) %>% t() %>% data.frame()
+rownames(PA) <- n
+#PA[-rownames(PA) %in% bad_models,]
+
+pairs <- simpairs_lgnum(PA)
+el <- dist2edgelist(pairs, PA)
+
+eln <- el %>% filter(Z.Score < 0.5)
+elp <- el %>% filter(Z.Score > 0.5)
+
+gn <- graph_from_data_frame(eln, directed= FALSE)
+
 
 #### # PCA of SDM pixels based on suitability of functional groups #####
 vars <- n[which(!n %in% bad_models)]
