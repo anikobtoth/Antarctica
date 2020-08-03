@@ -249,3 +249,30 @@ Post meeting:
 Yesterday I followed up on point (3) above; 81 units with more than 20 pixels assigned to them resulted; 60 of these had species occurrences recorded in them. Network analysis of similarity between units using occurrence of functional groups within units suggested a classification where the 60 units were lumped into 48 clusters (most units in a group by themselves).
 
 Still might try points (1) and (2) above.
+
+
+
+3 August 2020
+
+Still working on finalising the preliminary typology.
+
+Habitat classifications: 
+Spent several days experimenting with points (1) and (2) above, but decided not to use them because the biotic classifications tend to be dominated by one or two variables, and this is the case when biotic clusters are calculated in isolation and when they are combined with abiotic variables to produce a classification. 
+
+I settled on the approach using point (5) above, supplemented by points (3) and (4). I ran 100 cmeans iterations with 8 centres each, allowing them to converge. I then matched up each habitat with its closest relative in every pairwise combination of outputs (in most cases there is an obvious match, which helps), and made a network of these, keeping links between habitats with 80% or more overlap. Then I ran cluster analysis on the resulting network. Some habitats come out as a distinct cluster every time -- these break off into a densely connected subgraph in the network, containing one vertex per rep (so in this case 100 or very close to it). In other cases, cmeans always breaks a cloud of points into 2 clusters, but it's inconsistent on where the break is, which results in those habitats being lumped (which is good, since there's no consensus on a divide; an example is cluster 4 in the final classification). The network approach ultimately indicated 7 clusters (although this *can* certainly be manipulated, for example by changing the minimum cutoff for for an edge to be included in the network and the number of centres given to cmeans in the first place). 
+
+Finally, I used the network results to place each pixel into the cluster in which it was placed the most often. The consensus was pretty strong, only about 800 pixels (out of more than 60k) were classified on the agreement of fewer than 40 models out of 100, and most were classified on the agreement of 90 or more models.
+
+Typological unit classification:
+ The final, consensus-based habitat classification was broken out into ACBRs; out of 105 possible combinations, 81 units were represented by at least 1 pixel; 67 units have 20 pixels or more, and 55 had point occurrences. Point occurrences--lumped by functional group-- were used to quantify the similarity between the 55 units. These were used to construct a network, keeping links stronger than the 98.5% quantile of all the scores. A second cluster analysis on the resulting network identified 41 units (i.e. the 55 units were lumped into 41). Usually lumping occurred between units that were either in the same ACBR or had the same habitat. The 26 units without point occurrences received their own unit number at this step. Because these are so small, I will attempt to lump them at the next step. So at this stage we have 41+26 = 67 units, some quite tiny.
+ 
+At this stage, most large pixels (SDM pixels) were classified into one of these 67 units, however, 7786 pixels remained unclassified because we do not have abiotic variables for them, and therefore they had to be excluded from the consensus cmeans approach. This is a little too many for comfort (more than 10% of pixels), so I decided to try and place each of these pixels within an existing unit. 
+
+I calculated the most similar unit to each pixel based on SDM suitability values for the 25 reliable models. This resulted in most pixels being matched with a very distant unit, so I also calculated the minimum distance between each pixel and the five most similar units. Most pixels had a match within 500km, but some did not. At this point it occurred to me that most of the pixels without habitat classifications were off the coast of the mainland (e.g. on small island outcrops), and that perhaps these types of habitats should have their own unit. To be discussed with Aleks at our next catch up (this this Wednesday the 5th).
+
+Using ArcMap, I determined which points were not on the mainland, and then used a spatialJoin to match each one to the nearest land polygon. The idea is that such pixels can be sorted by the size of the bits of land that intersect with them. A separate unit could then be created for small coastal islands, and perhaps these could be grouped by size if necessary. Offhand, I'd guess these pixels are quite a unique habitat, because not only are they directly on the ocean, they are surrounded on all sides by ocean, and thus probably lack certain characteristics of pixels that are on the mainland (e.g. they are not protected from the water on some sides, invasion only possible over water, etc.). 
+
+Some remaining pixels which still remain unclassified after this process will be either ignored or placed into units using the approach outlined above (SDM and geographic proximity). Stand by for results...
+ 
+ 
+
