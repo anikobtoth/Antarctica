@@ -61,6 +61,36 @@ dist2edgelist <- function(z, sppDat){  #edge list with link types attached
   return(k3)
 }
 
+## Contingency table 
+cont_table <- function(x){ #simpairs function, simpairs only out
+  samples = ncol(x)  #S
+  a = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
+  occs = array()
+  
+  #Calculate overlap
+  for (i in 2:nrow(x))  {
+    for (j in 1:(i-1))
+    {
+      a[i,j] = length(which(x[i,] > 0 & x[j,] > 0)) # B
+    }
+  }
+  
+  a <- as.dist(a, diag = F, upper = F)
+  
+  l <- dist2edgelist(a, x)
+  s <- rowSums(x) %>% data.frame()
+  
+  t <- merge(l, s, by.x = "Sp1", by.y = 0)
+  t <- merge(t, s, by.x = "Sp2", by.y = 0)
+  t <- t %>% select(Sp1, Sp2, ..x, ..y, Z.Score)
+  t$samples <- ncol(x)
+  names(t) <- c("Sp1", "Sp2", "presSp1", "presSp2", "presBoth", "samples")
+  t$absSp1 <- t$samples - t$presSp1
+  t$absSp2 <- t$samples - t$presSp2
+  
+  return(t)
+}
+
 ##### ANALYSES ######
 # FETmP
 simpairs <- function(x){ #simpairs function, simpairs only out
@@ -133,6 +163,29 @@ simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
   return(as.dist(z, diag = F, upper = F))
 }
 
+FETmP <- function(contable){
+  #cl <- makeCluster(detectCores()-2)
+  #clusterExport(cl, c("contable", "FETmP_"))
+  #clusterEvalQ(cl, library(tidyverse))
+  #out <- parRapply(cl, contable, function(x) {x <- as.numeric(x)
+  #return(FETmP_(x[3], x[4], x[5], x[6]))})
+  #stopCluster(cl)
+ 
+  out <- apply(contable, 1, function(x) {x <- as.numeric(x)
+ return(FETmP_(x[3], x[4], x[5], x[6]))})
+  return(out)
+
+}
+
+FETmP_ <- function(presSp1, presSp2, presBoth, samples){
+  absSp2 <- samples-presSp2
+  minovl <- max(presSp1+presSp2-samples,0)
+  p <- choose(presSp2, minovl:presBoth) * choose(absSp2, presSp1-minovl:presBoth)/choose(samples, presSp1)
+  
+  return(sum(p)-0.5*last(p))
+}
+
+
 cmeans_pca <- function(x, vars=names(x), groups=6, weights=1, iter = 1000){
   clust <- cmeans(x %>% select(vars), 
          groups, iter.max = iter, verbose = TRUE, 
@@ -158,7 +211,7 @@ network_analysis <- function(x, threshold = 0.8){
   g <- delete_edges(g, E(g)[which(E(g)$Z.Score < quantile(E(g)$Z.Score, threshold, na.rm = T))])
   clust <- cluster_fast_greedy(g) #weights = E(g)$Z.Score)
   plot(g, vertex.label = NA, vertex.size = 6, vertex.color = clust$membership)
-  return(g)
+  return(list(g, clust))
 }
 
 ### Forbes index functions by J. Alroy ###

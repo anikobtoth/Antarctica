@@ -140,9 +140,67 @@ units <- data.frame(unit = V(g[[1]])$name, consensus2 = g[[2]]$membership) %>%
 units$consensus2[is.na(units$consensus2)] <- units$unit[is.na(units$consensus2)] %>% as.character %>% 
   as.factor() %>% as.numeric() %>% `+`(max(units$consensus2, na.rm = TRUE))
 
-## Third consensus this time using SDM pseduopresences ####
+# add lat longs to use rdist.earth properly later #
+sdmPix_spt <- SpatialPointsDataFrame(coords = cbind(units$x, units$y), 
+                                     data = units, proj4string = crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+sdmPix_wgs <- spTransform(sdmPix_spt, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+units <- data.frame(units, coordinates(sdmPix_wgs))
+names(units)[11:12] <- c("lon", "lat")
+
+rownames(units) <- units$cell
+
+### Identify islands and coastal pixels ####
+
+islands <- read_csv("E:/Antarctica/Data/Species/SDMpixels_LandPoly_join.csv") %>% 
+  select(pointid, grid_code, POINT_X, POINT_Y, FID_2, gid, surface, Area_sqm, Distance)
+
+# get closest LAND polygon to points on an ice shelf
+iceshelf <- read_csv("E:/Antarctica/Data/Species/SDMpixels_iceshelf_landpoly_join.csv")
+iceshelf <- iceshelf %>% select(pointid, grid_code, POINT_X, POINT_Y, FID_3, gid_1, surface_1, Area_sqm_1, Distance_1) %>% 
+  setNames(c("pointid", "grid_code", "POINT_X", "POINT_Y", "FID_2", "gid", "surface", "Area_sqm", "Distance"))
+
+is <- rbind(islands %>% filter(surface == "land"), iceshelf)
+is <- left_join(islands, sdmPix, by = c("pointid"="id")) %>% filter(cell %in% neighbors$cell)
+
+
+# Group cells into 3 different sized islands
+smallislands <- is[which(is$Area_sqm < 1000000),]$cell
+medislands   <- is[which(is$Area_sqm >= 1000000 & is$Area_sqm < 100000000),]$cell
+largeislands <- is[which(is$Area_sqm >= 100000000 & is$Area_sqm < 1000000000000),]$cell
+
+units$unit <- as.character(units$unit)
+units[units$cell %in% smallislands,]$unit <- "OffshoreIsland_0to1sqkm"
+units[units$cell %in% medislands,]$unit <- "OffshoreIsland_1to100sqkm"
+units[units$cell %in% largeislands,]$unit <- "OffshoreIsland_100plussqkm"
+
+units[units$cell %in% smallislands,]$consensus2 <- max(units$consensus2, na.rm = T) + 1
+units[units$cell %in% medislands,]$consensus2 <- max(units$consensus2, na.rm = T) + 1
+units[units$cell %in% largeislands,]$consensus2 <- max(units$consensus2, na.rm = T) + 1
+
+# Coastal cells whose nearest land is the mainland grouped with habitat of nearest pixel neighbour ####
+x1 <- units[units$cell %in% (is[which(is$Area_sqm > 10^12),] %>% pull(cell)),] %>% select(lon, lat, cell)
+x2 <- units[!units$cell %in% (is[which(is$Area_sqm > 10^12),] %>% pull(cell))  & 
+              !units$unit %in% c("OffshoreIsland_0to1sqkm", 
+                                 "OffshoreIsland_1to100sqkm", 
+                                 "OffshoreIsland_100plussqkm") &
+              !is.na(units$unit)
+            ,] %>% 
+  select(lon, lat, cell, unit, consensus2)
+temp <- x2[rdist.earth(x1, x2, miles = F) %>% 
+             apply(1, which.min),] %>% select(unit, consensus2) %>% 
+  mutate(dist = rdist.earth(x1, x2, miles = F) %>% apply(1, min), cell = x1$cell)
+
+units[as.character(temp$cell),]$unit <- temp$unit
+units[as.character(temp$cell),]$consensus2 <- temp$consensus2
+
+# pixels without nearby consensus-classified units are not classified by neighbor. 
+units[as.character(temp$cell),][which(temp$dist > 6),]$consensus2 <- NA
+units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
+
+
+## Consensus using SDM pseduopresences ####
 # used to classify pixels with no environmental data and merge units which are too small #
-thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
+thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.5))
 PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
     apply(2, as.numeric) %>% data.frame() %>% setNames(n)
 rownames(PA) <- rownames(v)
@@ -154,43 +212,59 @@ PA <- PA %>% na.omit() %>% namerows() %>% group_by(consensus2) %>%
   summarise_all(sum) %>% select(-consensus2)
 PA <- tobinary.single(PA)
 
-## Match unclassified pixels to most similar unit ####
+## Match unclassified pixels to most similar unit (within 100km and 0.98 similarity) ####
 contable <- apply(PA1, 1, function(x) apply(PA, 1, function(y) rbind(x, y) %>% cont_table)) %>% 
-  map(bind_rows, .id = "unit") %>% bind_rows(.id = "cell") %>% select(-Sp1, -Sp2)
+  purrr::map(bind_rows, .id = "unit") %>% bind_rows(.id = "cell") %>% select(-Sp1, -Sp2)
 
 contable$score <- FETmP(contable)
 
-neighbors <- contable %>% group_by(cell) %>% 
-  summarise(unit1 = which.max(score), 
-            unit2 = unit[order(score, decreasing = TRUE)][2],
-            unit3 = unit[order(score, decreasing = TRUE)][3],
-            unit4 = unit[order(score, decreasing = TRUE)][4],
-            unit5 = unit[order(score, decreasing = TRUE)][5]) %>%
-  sapply(as.numeric) %>% data.frame()
+neighbors <- contable %>% split(.$cell) %>% purrr::map(~filter(., score > 0.98)) %>% 
+  purrr::map(~.$unit[order(.$score, decreasing = TRUE)] %>% as.numeric())
+neighbors <- neighbors[sapply(neighbors, length) > 0]
 
-i <- 3401
+# visual check
+i <- 2201
 plot(y~x, data = sdmPix, pch = 16, cex = 0.1)
-points(y~x, data = units %>% filter(consensus2 == 43), col = "blue", pch = 3, cex = 1)
-points(y~x, data = sdmPix %>% filter(cell == neighbors$cell[1]), col = "red", pch = 3)
+points(y~x, data = units %>% filter(consensus2 == 54), col = "blue", pch = 3, cex = 1)
+points(y~x, data = units %>% filter(is.na(consensus2)), col = "red", pch = 3)
 
 ## Spatially nearest units ###
 
-# get lat longs to use rdist.earth properly
-sdmPix_spt <- SpatialPointsDataFrame(coords = cbind(units$x, units$y), 
-                                     data = units, proj4string = crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
-
-sdmPix_wgs <- spTransform(sdmPix_spt, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
-units <- data.frame(units, coordinates(sdmPix_wgs))
-names(units)[11:12] <- c("lon", "lat")
-
 u <- list()
-for(i in 1:nrow(neighbors)){
-  p <- units %>% filter(cell == neighbors$cell[i]) %>% select(lon, lat)
-  u[[i]] <- units %>% filter(consensus2 %in% neighbors[i, 2:6]) %>% 
-  select(consensus2, lon, lat) %>% split(.$consensus2) %>% 
-    sapply(function(z) rdist.earth(p, z %>% select(lon, lat), miles = F) %>% min())
+for(i in 1:length(neighbors)){
+  p <- units %>% filter(cell == as.numeric(names(neighbors))[i]) %>% select(lon, lat)
+  u[[i]] <- units %>% filter(consensus2 %in% neighbors[[i]]) %>% 
+  select(lon, lat, consensus2) %>% split(.$consensus2) %>% 
+    sapply(function(z) rdist.earth(p, z, miles = F) %>% min())
   print(u[[i]])
 }
+u <- setNames(u, names(neighbors))
+
+temp <- data.frame(
+  cell = names(u),
+  unit = sapply(u, function(x) names(x)[which.min(x)]),
+  dist = sapply(u, min)) %>% 
+  filter(dist < 100)
+
+units[as.character(temp$cell),]$consensus2 <- temp$unit
+
+# Remaining mainland cells grouped with habitat of nearest pixel neighbour (if within 6km) #
+x1 <- units[is.na(units$consensus2),] %>% select(lon, lat, cell)
+x2 <- units[!is.na(units$consensus2),] %>% select(lon, lat, cell, unit, consensus2)
+
+temp <- x2[rdist.earth(x1, x2, miles = F) %>% 
+             apply(1, which.min),] %>% select(unit, consensus2) %>% 
+  mutate(dist = rdist.earth(x1, x2, miles = F) %>% apply(1, min), cell = x1$cell)
+
+units[as.character(temp$cell),]$unit <- temp$unit
+units[as.character(temp$cell),]$consensus2 <- temp$consensus2
+
+# pixels without nearby consensus-classified units are not classified by neighbor. 
+units[as.character(temp$cell),][which(temp$dist > 6),]$consensus2 <- NA
+units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
+
+
+#### #####
 
 ### reduce to small pixels ####
 
