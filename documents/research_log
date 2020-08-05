@@ -274,5 +274,13 @@ Using ArcMap, I determined which points were not on the mainland, and then used 
 
 Some remaining pixels which still remain unclassified after this process will be either ignored or placed into units using the approach outlined above (SDM and geographic proximity). Stand by for results...
  
+ 5 Aug 2020
  
+Created 3 new units, for three different offshore island sizes. They are: Offshore Islands 0-1 km2, 1-100 km2, and more than 100 km2 (exact size distinctions are up for discussion). Unclassified pixels whose nearest landmass was the mainland were classified into units based on the nearest classified pixel, if that pixel was situated within 6km of the focal pixel, and otherwise left unclassified at this step.
+
+After this procedure, 2501 pixels were still left unclassified. These were targeted with a similarity approach based on the SDM results. Pixels were classified based on SDM similarity and proximity to existing units. SDM suitability values were translated into pseudo-presences, and this data was run through similarity analysis (using FETmP but on pixels instead of species). The pixels are assigned to the most similar unit whose closest pixel is within 100 km of the focal pixel. This analysis works best when all sites have several functional groups present, but not all. Therefore, it was run with pseudo-presences generated at two different thresholds, 50% and 85%. The higher threshold leaves many pixels with only 0 or 1 pseudo presence, making them difficult to classify. The lower threshold allows these depauperate pixels to be classified based on more pseudo-presences, and prevents them from being classified into units that are saturated.
+
+**NOTE** Pixels were all classified based on the characteristics of any ice-free areas they overlap with. The idea is that when the final typology is finished, it can be changed into polygon format and clipped to the ice-free areas, and none of this area will be missing because of borderline pixels.
+
+Most of the remaining pixels are on the mainland and less than 6km from a classified pixel; these were classified with their nearest neighbor. After this procedure only 251 pixels remained unclassified. A small sample of them did not contain any ice-free area.  
 
