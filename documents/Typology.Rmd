@@ -1,0 +1,88 @@
+---
+title: "Typology"
+author: "Aniko B TOth"
+date: "07/08/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(RColorBrewer)
+library(ggfortify)
+library(tidyverse)
+load("./typology.Rdata")
+```
+
+### Habitat classifications
+Habitat classifications were based on a consensus approach (100 cmeans runs) using abiotic data.
+
+```{r echo=FALSE}
+autoplot(x, data =sdmPix_weights , col = "consensus", 
+         loadings = TRUE, loadings.label = TRUE, 
+         loadings.label.size = 5, alpha = 0.4)
+```
+
+Approximate habitat descriptions (very pronounced features in *bold*):
+1: high rugosity, lower *elevation*, low *wind*.
+2: high *rugosity*, high *elevation*, low wind.
+3: high elevation, *inland*, windy, dry, very cold
+4: high *precipitation*, coastal, low elevation, *warmer*
+5: medium elevation and rugosity, but higher elevation and lower rugosity than cluster 6, inland, very cold
+6: medium elevation and rugosity, lower wind, near coastal
+11: extremely *windy*, usually lower rugosity, very low precip
+
+```{r}
+habitats %>% ggplot(aes(x = consensus, y = value, fill = consensus)) + geom_boxplot(outlier.size = .5) + facet_wrap(~variable)
+```
+
+### Typology units
+
+The habitats were then split into ACBRs, creating a rudimentary typology. These ACBR-habitat units were then lumped by similarity based on species point occurrences. Several combinations of ACBR-habitat do not exist, and several are represented by very few pixels. 
+
+```{r}
+
+table(consensus$ACBR_Name, consensus$consensus)
+
+```
+
+### Classifying pixels without abiotic data
+
+Unclassified pixels were classified in the following way: 
+
+Pixels covering offshore islands were classified by island size:
+
+Small islands: 0-1 km^^2
+Medium islands: 1-100 km^^2
+Large islands*: 100+ km^^2
+
+*A caveat here is that large islands usually have habitats classified within them, meaning "Large islands" pixels are usually just coastal/offshore pixels of large islands. Possibly these should be classified using the nearest units instead. 
+
+Unclassified pixels on or near the coast of the mainland were classified using the nearest typological units (max 6km away). 
+
+Remaining unclassified pixels were classified based on SDM-based similarity and spatial proximity (max 100 km but min 0.98 similarity) to existing units. About 250 pixels remain unclassified (these didn't have a similar unit close enough).
+
+
+### Typology V1 
+
+Below is a very terrible map of the output raster. See the actual raster file in arcGIS to get a better picture. 
+
+```{r fig.height=9, fig.width=12}
+n <- 70
+qcp <- brewer.pal.info[brewer.pal.info$category == "qual",]
+colors <- mapply(brewer.pal, qcp$maxcolors, rownames(qcp)) %>% unlist()
+print(colors)
+#plot(unitsV1, col = colors)
+```
+
+
+Notes on V1 of the typology: 
+
+This typology is oversplit. We need expert input to try to work out which units could be lumped. Part of this is working out whether we would rather group somewhat similar habitats in the same spatial area, or the same habitats in disparate ACBRs. Some of the units are VERY small (fewer than 20 pixels). Decisions need to be made whether these should be dropped, lumped with nearby habitats, or lumped with similar habitats farther away. I looked at some of these tiny units in Google Earth, and the habitat distinctions seemed legitimate, usually because in mountainous areas the habitat can change rapidly (e.g. a valley vs a cliff vs a ridgetop), therefore personally I think I'm more in favour of the latter idea. 
+
+It is possible that some big lumped typological units should be un-lumped, these were usually lumped based on faunal similarity, and difference from the rest of the units on a continental scale. Possibly the finer delineations within these lumped units ought to be recognised. 
+
+Alternatively, it is possible to repeat the typology creation process using my code, but using e.g. fewer cmeans centres to start with (resulting likely in fewer habitats), and use less stringent criteria when lumping/classifying units.
+
+
+
+
+
