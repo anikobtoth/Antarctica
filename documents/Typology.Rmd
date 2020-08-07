@@ -8,11 +8,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(raster)
 library(RColorBrewer)
 library(ggfortify)
 library(tidyverse)
-library(raster)
+
 load("./typology.Rdata")
+load("./typology_key.Rdata")
 ```
 
 ### Habitat classifications
@@ -82,6 +84,14 @@ qcp <- brewer.pal.info[brewer.pal.info$category == "qual",]
 colors <- mapply(brewer.pal, qcp$maxcolors, rownames(qcp)) %>% unlist()
 #print(colors)
 plot(unitsV1, col = colors)
+```
+
+
+The below table is a key for the raster levels (1-70). It shows the ACBR-habitat combination and which unit its assigned to, as well as the number of pixels in each. 
+
+```{r unitskey, echo = F}
+print(unitskey, n = Inf)
+
 ```
 
 
