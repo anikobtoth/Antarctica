@@ -1,14 +1,17 @@
 ---
 title: "Typology"
-author: "Aniko B TOth"
+author: "Aniko B Toth"
 date: "07/08/2020"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 library(RColorBrewer)
 library(ggfortify)
 library(tidyverse)
+library(raster)
 load("./typology.Rdata")
 ```
 
@@ -21,16 +24,24 @@ autoplot(x, data =sdmPix_weights , col = "consensus",
          loadings.label.size = 5, alpha = 0.4)
 ```
 
-Approximate habitat descriptions (very pronounced features in *bold*):
-1: high rugosity, lower *elevation*, low *wind*.
-2: high *rugosity*, high *elevation*, low wind.
-3: high elevation, *inland*, windy, dry, very cold
-4: high *precipitation*, coastal, low elevation, *warmer*
-5: medium elevation and rugosity, but higher elevation and lower rugosity than cluster 6, inland, very cold
-6: medium elevation and rugosity, lower wind, near coastal
-11: extremely *windy*, usually lower rugosity, very low precip
+Approximate habitat descriptions (very pronounced features in __bold__):
 
-```{r}
+1: high rugosity, lower __elevation__, low __wind__.
+
+2: high __rugosity__, high __elevation__, low wind.
+
+3: high elevation, __inland__, windy, dry, very cold
+
+4: high __precipitation__, coastal, low elevation, __warmer__
+
+5: medium elevation and rugosity, but higher elevation and lower rugosity than cluster 6, inland, very cold
+
+6: medium elevation and rugosity, lower wind, near coastal
+
+11: extremely __windy__, usually lower rugosity, very low precip
+
+
+```{r echo = FALSE}
 habitats %>% ggplot(aes(x = consensus, y = value, fill = consensus)) + geom_boxplot(outlier.size = .5) + facet_wrap(~variable)
 ```
 
@@ -38,7 +49,7 @@ habitats %>% ggplot(aes(x = consensus, y = value, fill = consensus)) + geom_boxp
 
 The habitats were then split into ACBRs, creating a rudimentary typology. These ACBR-habitat units were then lumped by similarity based on species point occurrences. Several combinations of ACBR-habitat do not exist, and several are represented by very few pixels. 
 
-```{r}
+```{r echo = FALSE}
 
 table(consensus$ACBR_Name, consensus$consensus)
 
@@ -65,12 +76,12 @@ Remaining unclassified pixels were classified based on SDM-based similarity and 
 
 Below is a very terrible map of the output raster. See the actual raster file in arcGIS to get a better picture. 
 
-```{r fig.height=9, fig.width=12}
+```{r unitsV1, echo = FALSE, fig.height=9, fig.width=12}
 n <- 70
 qcp <- brewer.pal.info[brewer.pal.info$category == "qual",]
 colors <- mapply(brewer.pal, qcp$maxcolors, rownames(qcp)) %>% unlist()
-print(colors)
-#plot(unitsV1, col = colors)
+#print(colors)
+plot(unitsV1, col = colors)
 ```
 
 
