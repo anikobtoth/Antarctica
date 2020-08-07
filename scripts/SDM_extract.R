@@ -1,5 +1,4 @@
 library(raster)
-library(tidyverse)
 library(ggfortify)
 library(rgl)
 library(parallel)
@@ -7,6 +6,7 @@ library(e1071)
 library(data.table)
 library(igraph)
 library(fields)
+library(tidyverse)
 source('./scripts/Helper_Functions.R')
 
 l <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE) %>% 
@@ -72,7 +72,7 @@ sdm_hcl <- parLapply(cl, 1:100, function(x) cmeans(cldat, centers = centers, ite
 
 stopCluster(cl)
 
-sdmPix_weights <-  data.frame(sdmPix_weights, map(sdm_hcl, ~as.factor(.$cluster)) %>% reduce(data.frame)) %>%
+sdmPix_weights <-  data.frame(sdmPix_weights, purrr::map(sdm_hcl, ~as.factor(.$cluster)) %>% reduce(data.frame)) %>%
   setNames(c(names(sdmPix_weights), paste0("hcl", centers, "W", 1:length(sdm_hcl), ".itmx", itmx)))
             
 out <- lapply(data.frame(combn(3:ncol(sdmPix_weights), 2)), 
@@ -81,7 +81,7 @@ out <- lapply(data.frame(combn(3:ncol(sdmPix_weights), 2)),
         apply(1, function(x) c(which.max(x), max(x)/sum(x))) %>% t()) %>%
   setNames(sapply(data.frame(combn(3:ncol(sdmPix_weights), 2)), 
                   function(y) paste(y[1], y[2], sep = "_")) ) %>% 
-  map(~data.frame(first = 1:nrow(.), .)) %>% bind_rows(.id = "reps") %>%
+  purrr::map(~data.frame(first = 1:nrow(.), .)) %>% bind_rows(.id = "reps") %>%
   separate(reps, into = c("repA", "repB"), sep = "_") %>% 
   mutate(cl1 = paste(repA, first, sep = "_"),
          cl2 = paste(repB, X1, sep = "_")) %>%
@@ -98,9 +98,9 @@ cons <- data.frame(row.names = V(g)$name, consensus = cl$membership)
 cons_class <- lapply(25:ncol(sdmPix_weights), function(x) paste(x, sdmPix_weights[,x], sep = "_")) %>%
   lapply(function(x) cons[as.character(x),1]) %>% reduce(data.frame)
 
-test <- apply(cons_class, 1, table)
-sdmPix_weights$consensus <- test %>% sapply(which.max) %>% names()
-sdmPix_weights$agreement <- test %>% sapply(max)
+temp <- apply(cons_class, 1, table)
+sdmPix_weights$consensus <- temp %>% sapply(which.max) %>% names()
+sdmPix_weights$agreement <- temp %>% sapply(max)
 
 x <- princomp(cldat %>% select(all_of(vars))) 
 
@@ -160,7 +160,8 @@ iceshelf <- iceshelf %>% select(pointid, grid_code, POINT_X, POINT_Y, FID_3, gid
   setNames(c("pointid", "grid_code", "POINT_X", "POINT_Y", "FID_2", "gid", "surface", "Area_sqm", "Distance"))
 
 is <- rbind(islands %>% filter(surface == "land"), iceshelf)
-is <- left_join(islands, sdmPix, by = c("pointid"="id")) %>% filter(cell %in% neighbors$cell)
+is <- left_join(is, sdmPix, by = c("pointid"="id")) %>% 
+  filter(cell %in% units$cell[is.na(units$consensus2)]) # keep cells that have not been classified
 
 
 # Group cells into 3 different sized islands
@@ -200,7 +201,7 @@ units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
 
 ## Consensus using SDM pseduopresences ####
 # used to classify pixels with no environmental data and merge units which are too small #
-thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.5))
+thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
 PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
     apply(2, as.numeric) %>% data.frame() %>% setNames(n)
 rownames(PA) <- rownames(v)
@@ -223,10 +224,10 @@ neighbors <- contable %>% split(.$cell) %>% purrr::map(~filter(., score > 0.98))
 neighbors <- neighbors[sapply(neighbors, length) > 0]
 
 # visual check
-i <- 2201
+i <- 1
 plot(y~x, data = sdmPix, pch = 16, cex = 0.1)
-points(y~x, data = units %>% filter(consensus2 == 54), col = "blue", pch = 3, cex = 1)
-points(y~x, data = units %>% filter(is.na(consensus2)), col = "red", pch = 3)
+points(y~x, data = units %>% filter(consensus2 == 54), col = "green", pch = 3, cex = 1)
+points(y~x, data = units %>% filter(cell == names(neighbors)[1]), col = "red", pch = 3)
 
 ## Spatially nearest units ###
 
@@ -264,11 +265,42 @@ units[as.character(temp$cell),][which(temp$dist > 6),]$consensus2 <- NA
 units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
 
 
-#### #####
+# #### lump tiny units (decided not to: experts instead?)#####
+# 
+# thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.7))
+# PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
+#   apply(2, as.numeric) %>% data.frame() %>% setNames(n)
+# rownames(PA) <- rownames(v)
+# PA <- PA %>% select(n[which(!n %in% bad_models)])
+# 
+# PA <- merge(units %>% select(cell, consensus2), PA, by.x = "cell", by.y = 0)
+# PA <- PA %>% na.omit() %>% namerows() %>% group_by(consensus2) %>% 
+#   summarise_all(sum) %>% select(-consensus2)
+# PA <- tobinary.single(PA)
+# 
+# ## Match smallest units to most similar unit (within 100km and 0.98 similarity) ####
+# contable <- cont_table(PA)
+# 
+# contable$score <- FETmP(contable)
+# 
+# g <- contable %>% graph_from_data_frame(directed = F) %>% delete.edges(E(.)[E(.)$score < 0.9])
+# V(g)$frequency <- table(units$consensus2)[V(g)$name]
+# plot(g, vertex.size = log(V(g)$frequency), vertex.label = NA)
 
-### reduce to small pixels ####
 
 
+
+
+### produce raster and shapefiles ####
+unitsV1 <- raster(SDMs[[1]])
+
+units <- units[sort(units$cell) %>% as.character(),] 
+
+unitsV1[cellFromXY(unitsV1, cbind(units$x, units$y))] <- units$consensus2
+#unitsV1 <- setValues(unitsV1, values = units$consensus2, index = units$cell)
+
+writeRaster(unitsV1, filename = "../Data/Typology/typV1", 
+            format = "ascii", overwrite = TRUE)
 
 ##################
 ####### OLD STUFF #######
