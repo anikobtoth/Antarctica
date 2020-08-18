@@ -13,7 +13,7 @@ l <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE) %>
   file.path("trend_basedist0.tif")
 n <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE, full.names = FALSE)
 
-SDMs <- stack(l)
+SDMs <- raster::stack(l)
 crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 v <- getValues(SDMs) %>% data.frame() %>% na.omit() %>% setNames(n)
 v <- apply(v, 2, function(x) (x-min(x))/(max(x)-min(x)))
@@ -28,10 +28,13 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Marchantiophyta_____",
                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
-                
+
+good_models <- n[!n%in% bad_models]                
+
 # get coordinates of pixels
 pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame() %>% mutate(cell = rownames(v))
 
+detach("package:raster", unload = TRUE)
 ### Prepare pixel data ########
 req_var = fread("./data/Habitats/req_var.csv")
 
@@ -40,14 +43,14 @@ envpred_norm = fread("./data/Habitats/envpred_norm.csv")
 load("E:/Antarctica/Antarctica/data/spatialUnits.RData")
 load("E:/Antarctica/Antarctica/data/DB_sdmPix.Rdata")
 t <- read_csv("E:/Antarctica/Data/IFA_Hab_SDM_join.txt")
-t <- t %>% select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
+t <- t %>% dplyr::select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
 
-sdmPix_env <- t %>% select(HabPix, SdmPix) %>% 
+sdmPix_env <- t %>% dplyr::select(HabPix, SdmPix) %>% 
   merge(envpred_norm, by.x = "HabPix", by.y = "V1") %>% 
   group_by(SdmPix) %>% 
-  summarise_all(mean) %>% select(-HabPix) 
+  summarise_all(mean) %>% dplyr::select(-HabPix) 
 
-sdmPix_weights <- merge(req_var %>% select(V1, rck01_prop), spatialUnits %>% select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
+sdmPix_weights <- merge(req_var %>% dplyr::select(V1, rck01_prop), spatialUnits %>% dplyr::select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
 v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% 
   merge(v, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
 
@@ -85,7 +88,7 @@ out <- lapply(data.frame(combn(3:ncol(sdmPix_weights), 2)),
   separate(reps, into = c("repA", "repB"), sep = "_") %>% 
   mutate(cl1 = paste(repA, first, sep = "_"),
          cl2 = paste(repB, X1, sep = "_")) %>%
-  select(cl1, cl2, X2)
+  dplyr::select(cl1, cl2, X2)
 
 g <- out %>% graph_from_data_frame(directed = F)
 g <- delete.edges(g, E(g)[which(E(g)$X2 < 0.80)])
@@ -142,7 +145,7 @@ units$consensus2[is.na(units$consensus2)] <- units$unit[is.na(units$consensus2)]
 
 # add lat longs to use rdist.earth properly later #
 sdmPix_spt <- SpatialPointsDataFrame(coords = cbind(units$x, units$y), 
-                                     data = units, proj4string = crs("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+                                     data = units, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
 sdmPix_wgs <- spTransform(sdmPix_spt, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
 units <- data.frame(units, coordinates(sdmPix_wgs))
 names(units)[11:12] <- c("lon", "lat")
@@ -235,7 +238,7 @@ u <- list()
 for(i in 1:length(neighbors)){
   p <- units %>% filter(cell == as.numeric(names(neighbors))[i]) %>% select(lon, lat)
   u[[i]] <- units %>% filter(consensus2 %in% neighbors[[i]]) %>% 
-  select(lon, lat, consensus2) %>% split(.$consensus2) %>% 
+  select(lon, lat, consensus2, unit) %>% split(.$consensus2) %>% 
     sapply(function(z) rdist.earth(p, z, miles = F) %>% min())
   print(u[[i]])
 }
@@ -303,6 +306,51 @@ writeRaster(unitsV1, filename = "../Data/Typology/typV1",
             format = "ascii", overwrite = TRUE)
 
 ##################
+######## Summary stats for units ##########
+
+s <- merge(units, v1 %>% dplyr::select(SdmPix, cell, weight, x, y, ACBR_Name, all_of(good_models), all_of(abvars)))
+s1 <- s %>% dplyr::select(-SdmPix, -cell, -weight, -x, -y, -ACBR_Name, -unit, -consensus, -agreement, -lon, -lat) %>%
+  group_by(consensus2) %>% summarise_all(list(.median = median, .sd = sd), na.rm = T) 
+
+s2 <- s1 %>% pivot_longer(-consensus2, names_to = "variable", values_to = "value") %>% mutate(variable = as.character(variable)) %>% 
+  separate(variable, into = c("variable", "statistic"), sep = "\\.")
+
+sx <- s1 %>% filter(!is.na(consensus2)) %>% na.omit() %>% 
+    dplyr::select(consensus2, grep("median", names(s1), value = TRUE))
+sx <- data.frame(unit = sx$consensus2, scale(sx %>% dplyr::select(-consensus2)))
+
+x <- prcomp(sx %>% dplyr::select(-unit))
+
+autoplot(x, sx, col = "wind_.median", 
+         loadings = TRUE, loadings.label = TRUE, loadings.label.size = 2, label = TRUE)
+
+lump <- c(15, 48)
+sx %>% dplyr::filter(unit %in% lump) %>% dplyr::select(-unit) %>% 
+  t() %>% plot(pch = 16, ylab = lump[2], xlab = lump[1], cex = 0.5)
+
+sx %>% filter(unit %in% lump) %>% dplyr::select(-unit) %>% 
+  t() %>% data.frame() %>% setNames(c("first", "second")) %>% 
+  lm(second~first, data = .) %>% summary()
+
+
+d <- dist(x$x, method = "euclidean") %>% dist2edgelist(data.frame(row.names = sx$unit, x$x)) %>%
+  setNames(c("unit1", "unit2", "dist", "id"))
+
+d$rstderr <- apply(d, 1, function(x){
+  lump <- c(x[1], x[2]) %>% as.numeric()
+  sx %>% filter(unit %in% lump) %>% dplyr::select(-unit) %>% 
+    t() %>% data.frame() %>% setNames(c("first", "second")) %>% 
+    lm(I(second-first)~1, data = .) %>% summary() %>% `$`(sigma) %>% return()
+})
+
+
+g <- d %>% filter(dist < 2 | rstderr < 0.25) %>% 
+  graph_from_data_frame(directed = F) 
+
+
+load("E:/Antarctica/Antarctica/documents/typology_key.Rdata")
+npix <- unitskey %>% group_by(consensus2) %>% summarise(pixels = sum(pixels))
+plot(g, edge.width = 8*(1/(E(g)$dist)), vertex.size = log(npix[V(g)$name,]$pixels)*2)
 ####### OLD STUFF #######
 ### Pseudo presences network analysis #####
 # Calculate thresholds at top 20% of output suitability range.
