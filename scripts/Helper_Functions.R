@@ -62,7 +62,7 @@ dist2edgelist <- function(z, sppDat){  #edge list with link types attached
 }
 
 ## Contingency table 
-cont_table <- function(x){ #simpairs function, simpairs only out
+cont_table <- function(x){ 
   samples = ncol(x)  #S
   a = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
   occs = array()
@@ -301,6 +301,11 @@ plotnet <- function(g, mod, title){
   plotnet_(g, title)
 }
 
+
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
 #####
 #####
 ####
