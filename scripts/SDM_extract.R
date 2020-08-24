@@ -32,9 +32,11 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
 good_models <- n[!n%in% bad_models]                
 
 # get coordinates of pixels
-pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame() %>% mutate(cell = rownames(v))
+pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame(v)
 
+rm(SDMs)
 detach("package:raster", unload = TRUE)
+
 ### Prepare pixel data ########
 req_var = fread("./data/Habitats/req_var.csv")
 
@@ -51,13 +53,13 @@ sdmPix_env <- t %>% dplyr::select(HabPix, SdmPix) %>%
   summarise_all(mean) %>% dplyr::select(-HabPix) 
 
 sdmPix_weights <- merge(req_var %>% dplyr::select(V1, rck01_prop), spatialUnits %>% dplyr::select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
-v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by.x = "SdmPix", by.y = "id", all = TRUE) %>% 
+v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by = "SdmPix", all = TRUE) %>% 
   merge(v, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
 
 abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
 bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiaceae__", "Rotifera_____", "Ascomycota_Lecanoromycetes_Not assigned_Rhizocarpaceae__", "Arthropoda_Arachnida_Mesostigmata___")
 
-vars <- c(abvars)
+vars <- c(abvars, bivars)
 
 ### Multiple cmeans consensus analysis #####
 cldat <- v1 %>% select(all_of(vars)) %>% na.omit()
@@ -69,7 +71,7 @@ clusterExport(cl, c("cldat", "sdmPix_weights", "centers", "itmx"))
 clusterEvalQ(cl, 
              library(e1071))
 
-sdm_hcl <- parLapply(cl, 1:100, function(x) cmeans(cldat, centers = centers, iter.max = itmx, 
+sdm_hcl <- parLapply(cl, 1:100, function(x) cmeans(cldat, centers = centers[x], iter.max = itmx, 
                      verbose = FALSE, dist = "euclidean", method = "ufcl", 
                      m = 2, rate.par = 0.3, weights = sdmPix_weights$weight))
 
@@ -91,7 +93,7 @@ out <- lapply(data.frame(combn(3:ncol(sdmPix_weights), 2)),
   dplyr::select(cl1, cl2, X2)
 
 g <- out %>% graph_from_data_frame(directed = F)
-g <- delete.edges(g, E(g)[which(E(g)$X2 < 0.80)])
+g <- delete.edges(g, E(g)[which(E(g)$X2 < 0.84)])
 plot(g, vertex.size = 7)
 cl <- cluster_fast_greedy(g, weights = E(g)$X2)
 l <- layout_nicely(g)
@@ -119,7 +121,7 @@ text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 sppSDMpix <- readRDS("E:/Antarctica/Antarctica/data/Species/Spp_SDMpix_occ.rds")
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
-pointoccs <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by.x = "SdmPix", by.y = "id", all.x = TRUE)
+pointoccs <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by = "SdmPix", all.x = TRUE)
 pointoccs <- merge(pointoccs, sppSDMpix, by.x = "SdmPix", by.y = "pointid")
 pointoccs$unit <- paste(pointoccs$ACBR_Name.x, pointoccs$consensus, sep = "_")
 
