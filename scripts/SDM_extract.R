@@ -309,8 +309,8 @@ units <- units[sort(units$cell) %>% as.character(),]
 unitsV1[cellFromXY(unitsV1, cbind(units$x, units$y))] <- units$consensus2
 #unitsV1 <- setValues(unitsV1, values = units$consensus2, index = units$cell)
 
-writeRaster(unitsV1, filename = "../Data/Typology/typV1", 
-            format = "ascii", overwrite = TRUE)
+writeRaster(unitsV1, filename = "../Data/Typology/typV1_cm_hybrid", 
+            format = "raster", overwrite = TRUE)
 
 ##################
 ######## Summary stats for units ##########
