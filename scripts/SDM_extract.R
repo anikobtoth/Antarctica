@@ -7,11 +7,12 @@ library(data.table)
 library(igraph)
 library(fields)
 library(tidyverse)
+library(rgdal)
 source('./scripts/Helper_Functions.R')
 
-l <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE) %>% 
+l <- list.dirs("../Data/Species/final_results", recursive = FALSE) %>% 
   file.path("trend_basedist0.tif")
-n <- list.dirs("E:/Antarctica/Data/Species/final_results", recursive = FALSE, full.names = FALSE)
+n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
 
 SDMs <- raster::stack(l)
 crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
@@ -42,9 +43,9 @@ req_var = fread("./data/Habitats/req_var.csv")
 
 envpred_norm = fread("./data/Habitats/envpred_norm.csv")
 
-load("E:/Antarctica/Antarctica/data/spatialUnits.RData")
-load("E:/Antarctica/Antarctica/data/DB_sdmPix.Rdata")
-t <- read_csv("E:/Antarctica/Data/IFA_Hab_SDM_join.txt")
+load("../Antarctica/data/spatialUnits.RData")
+load("../Antarctica/data/DB_sdmPix.Rdata")
+t <- read_csv("../Data/IFA_Hab_SDM_join.txt")
 t <- t %>% dplyr::select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
 
 sdmPix_env <- t %>% dplyr::select(HabPix, SdmPix) %>% 
@@ -53,7 +54,7 @@ sdmPix_env <- t %>% dplyr::select(HabPix, SdmPix) %>%
   summarise_all(mean) %>% dplyr::select(-HabPix) 
 
 sdmPix_weights <- merge(req_var %>% dplyr::select(V1, rck01_prop), spatialUnits %>% dplyr::select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
-v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% pix$cell), by = "SdmPix", all = TRUE) %>% 
+v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% rownames(pix)), by = "SdmPix", all = TRUE) %>% 
   merge(v, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
 
 abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
@@ -62,7 +63,7 @@ bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiace
 vars <- c(abvars, bivars)
 
 ### Multiple cmeans consensus analysis #####
-cldat <- v1 %>% select(all_of(vars)) %>% na.omit()
+cldat <- v1 %>% select(vars) %>% na.omit()
 centers <- 8
 itmx <- 10000
 
@@ -97,7 +98,11 @@ g <- delete.edges(g, E(g)[which(E(g)$X2 < 0.84)])
 plot(g, vertex.size = 7)
 cl <- cluster_fast_greedy(g, weights = E(g)$X2)
 l <- layout_nicely(g)
-plot(g, vertex.size = 4, vertex.color = cl$membership, vertex.label = NA, layout = l)
+
+cols <- data.frame(cl = c(table(cl$membership) %>% sort(decreasing = T) %>% head(8) %>% names() %>% sort(), table(cl$membership) %>% sort(decreasing = T) %>% tail(11) %>% names() %>% sort()), col = c(gg_color_hue(8), rep("white", 11)), stringsAsFactors = F)
+rownames(cols) <- cols$cl
+cols$cl <- as.numeric(cols$cl)
+plot(g, vertex.size = 4, vertex.color = cols$col[cl$membership], vertex.label = NA, layout = l)
 
 cons <- data.frame(row.names = V(g)$name, consensus = cl$membership)
 cons_class <- lapply(25:ncol(sdmPix_weights), function(x) paste(x, sdmPix_weights[,x], sep = "_")) %>%
@@ -107,7 +112,7 @@ temp <- apply(cons_class, 1, table)
 sdmPix_weights$consensus <- temp %>% sapply(which.max) %>% names()
 sdmPix_weights$agreement <- temp %>% sapply(max)
 
-x <- princomp(cldat %>% select(all_of(vars))) 
+x <- princomp(cldat %>% select(vars))
 
 autoplot(x, data =sdmPix_weights , col = "consensus", 
          loadings = TRUE, loadings.label = TRUE, 
@@ -118,7 +123,7 @@ text3d(x$loadings[,1:3], texts=rownames(x$loadings), col="red")
 
 
 ## ACBR interaction SDMpix 7 habclusters ######################
-sppSDMpix <- readRDS("E:/Antarctica/Antarctica/data/Species/Spp_SDMpix_occ.rds")
+sppSDMpix <- readRDS("../Antarctica/data/Species/Spp_SDMpix_occ.rds")
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
 pointoccs <- merge(sdmPix_weights[,c(1,2, ncol(sdmPix_weights)-1)], sdmPix, by = "SdmPix", all.x = TRUE)
@@ -156,16 +161,16 @@ rownames(units) <- units$cell
 
 ### Identify islands and coastal pixels ####
 
-islands <- read_csv("E:/Antarctica/Data/Species/SDMpixels_LandPoly_join.csv") %>% 
+islands <- read_csv("../Data/Species/SDMpixels_LandPoly_join.csv") %>% 
   select(pointid, grid_code, POINT_X, POINT_Y, FID_2, gid, surface, Area_sqm, Distance)
 
 # get closest LAND polygon to points on an ice shelf
-iceshelf <- read_csv("E:/Antarctica/Data/Species/SDMpixels_iceshelf_landpoly_join.csv")
+iceshelf <- read_csv("../Data/Species/SDMpixels_iceshelf_landpoly_join.csv")
 iceshelf <- iceshelf %>% select(pointid, grid_code, POINT_X, POINT_Y, FID_3, gid_1, surface_1, Area_sqm_1, Distance_1) %>% 
   setNames(c("pointid", "grid_code", "POINT_X", "POINT_Y", "FID_2", "gid", "surface", "Area_sqm", "Distance"))
 
 is <- rbind(islands %>% filter(surface == "land"), iceshelf)
-is <- left_join(is, sdmPix, by = c("pointid"="id")) %>% 
+is <- left_join(is, sdmPix, by = c("pointid"="SdmPix")) %>% 
   filter(cell %in% units$cell[is.na(units$consensus2)]) # keep cells that have not been classified
 
 

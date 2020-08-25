@@ -1,6 +1,8 @@
-install.packages("nFactors")
 
-cldat <- v1[,7:ncol(v1)] %>% na.omit() %>% dplyr::select(-geoT) %>% scale()
+library(nFactors)
+library(psych)
+
+cldat <- v1[,7:ncol(v1)] %>% na.omit() %>% dplyr::select(-geoT, -all_of(bad_models)) %>% scale()
 
 test <- fa(scale(cldat), 7, rotate = "varimax" )
 
@@ -14,8 +16,9 @@ plot(y~x, data = pdat, col = hsv(h = pnorm(scale(pdat$MR6))),
 
 pdat$cluster <- apply(sc, 1, which.max)
 
-plot(y~x, data = pdat, col = cluster, 
+antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
+points(y~x, data = pdat, col = cluster, 
      pch = 16, cex = 0.1)
 
-cv <- lapply(1:24, function(x) fa(scale(cldat), x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>%
+cv <- lapply(2:24, function(x) fa(scale(cldat), x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>%
   sapply(last)
