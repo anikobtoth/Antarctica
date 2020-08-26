@@ -284,3 +284,27 @@ After this procedure, 2501 pixels were still left unclassified. These were targe
 
 Most of the remaining pixels are on the mainland and less than 6km from a classified pixel; these were classified with their nearest neighbor. After this procedure only 251 pixels remained unclassified. A small sample of them did not contain any ice-free area.  
 
+
+26 August 2020
+
+Several developments since last time. I found an error in the data, a misalignment between the biotic and abiotic data. I fixed the problem and re-ran the cmeans consensus analysis including both biotic and abiotic data types, which yielded a sensible clustering solution. Also, in a conversation with John Alroy, he suggested I try factor analysis for a different soft-clustering approach, which I subsequently got working, again with both biotic and abiotic data included. I generated new draft typologies based on both of these hybrid approaches (cmeans consensus and factor analysis).
+
+Group meeting at 12-1:30pm today. 
+I took people through the methodologies described above. Group discussion, particularly input from Steven Chown, suggested we should not partition our habitats by ACBR. It was suggested that we try a hierarchical clustering approach wherein basic habitats are established using a clustering scheme on abiotic variables. I then suggested a separate cluster analysis could be run on each habitat, this time using the SDM data. This approach would relax the assumption that species suitability varies in a rigid way across different abiotic habitat types and allows for unique gradations of variation within each habitat type. There was general support for the factor analysis which seems simpler and more intuitive than the cmeans consensus.
+
+We discussed independent validation of resulting candidate units, potentially using more detailed datasets from limited spatial extents. Another potential way to validate is to use SDMs which are intentionally withheld from the original input data, although this is not, strictly speaking, independent.
+
+We discussed the island classification and the most supported course of action seemed to be to keep islands as separate, and potentially try to sub-classify them based on the SDM output data.
+
+TO DO: 
+1. Run FA on abiotic vars only (try different numbers of factors)
+2. Run FA on a priori important abiotic vars and compare
+3. Run FA on SDM vars within each habitat from step 1
+
+
+
+
+
+
+
+
