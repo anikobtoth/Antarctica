@@ -298,6 +298,7 @@ We discussed the island classification and the most supported course of action s
 
 TO DO: 
 1. Run FA on abiotic vars only (try different numbers of factors)
+   - Generate summary statistics and grids; place in a shared folder on oneDrive for others to examine.
 2. Run FA on a priori important abiotic vars and compare
 3. Run FA on SDM vars within each habitat from step 1
 
