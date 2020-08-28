@@ -1,4 +1,4 @@
-library(raster)
+
 library(ggfortify)
 library(rgl)
 library(parallel)
@@ -14,12 +14,6 @@ l <- list.dirs("../Data/Species/final_results", recursive = FALSE) %>%
   file.path("trend_basedist0.tif")
 n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
 
-SDMs <- raster::stack(l)
-crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
-v <- getValues(SDMs) %>% data.frame() %>% na.omit() %>% setNames(n)
-v <- apply(v, 2, function(x) (x-min(x))/(max(x)-min(x)))
-
-
 bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Chordata_Aves_Procellariiformes___",
                 "Arthropoda_Entognatha_Poduromorpha___",
@@ -30,53 +24,43 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
 
-good_models <- n[!n%in% bad_models]                
+good_models <- n[!n%in% bad_models] 
 
-# get coordinates of pixels
-pix <- xyFromCell(SDMs, rownames(v) %>% as.integer()) %>% data.frame(v)
+abiotic <- c("coast", "geoT", "cloud", "sumtemp", "wind", "temp", "melt", 
+             "modT_0315", "elev", "rad", "rugos", "slope", "DDminus5", "precip")
 
-rm(SDMs)
-detach("package:raster", unload = TRUE)
+### Load pixel data ########
+load("./data/DB_habPix.RData") # habPix
+load("./data/spatialUnits.RData") #spatialUnits
+load("./data/DB_sdmPix.Rdata") # sdmPix
 
-### Prepare pixel data ########
-req_var = fread("./data/Habitats/req_var.csv")
-
-envpred_norm = fread("./data/Habitats/envpred_norm.csv")
-
-load("../Antarctica/data/spatialUnits.RData")
-load("../Antarctica/data/DB_sdmPix.Rdata")
-t <- read_csv("../Data/IFA_Hab_SDM_join.txt")
-t <- t %>% dplyr::select(ID, x, y, pointid, POINT_X, POINT_Y, ORIG_FID, Distance, ACBR_ID, ACBR_Name) %>% setNames(c("HabPix", "hP_X", "hP_Y", "SdmPix", "sP_X", "sP_Y", "IFA", "hP_IFA_Dist_m", "ACBR_ID", "ACBR_Name"))
-
-sdmPix_env <- t %>% dplyr::select(HabPix, SdmPix) %>% 
-  merge(envpred_norm, by.x = "HabPix", by.y = "V1") %>% 
+# upscale abiotic variables from habPix to sdmPix
+sdmPix_env <- spatialUnits %>% dplyr::select(HabPix, SdmPix) %>% 
+  merge(habPix %>% dplyr::select(ID, all_of(abiotic)), by.x = "HabPix", by.y = "ID") %>% 
   group_by(SdmPix) %>% 
   summarise_all(mean) %>% dplyr::select(-HabPix) 
 
-sdmPix_weights <- merge(req_var %>% dplyr::select(V1, rck01_prop), spatialUnits %>% dplyr::select(HabPix, SdmPix), by.x = "V1", by.y = "HabPix") %>% group_by(SdmPix) %>% summarise(weight = sum(rck01_prop))
-v1 <- merge(sdmPix_weights, sdmPix %>% filter(cell %in% rownames(pix)), by = "SdmPix", all = TRUE) %>% 
-  merge(v, by.x = "cell", by.y = 0, all =TRUE) %>% merge(sdmPix_env, by = "SdmPix", all = TRUE)
+# upscale pixel weight from habPix to sdmPix
+sdmPix_weights <- merge(habPix %>% select(ID, Prop_in_IFA), spatialUnits %>% select(HabPix, SdmPix), by.x = "ID", by.y = "HabPix") %>% 
+  group_by(SdmPix) %>% summarise(weight = sum(Prop_in_IFA))
 
-abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
-bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiaceae__", "Rotifera_____", "Ascomycota_Lecanoromycetes_Not assigned_Rhizocarpaceae__", "Arthropoda_Arachnida_Mesostigmata___")
+# Full dataset for sdmPix
+v1 <- merge(sdmPix, sdmPix_env, by = "SdmPix", all = TRUE)
 
-vars <- c(abvars, bivars)
+# Full dataset downscaled to habPix
+v1 <- spatialUnits %>% select(HabPix, SdmPix) %>% 
+  merge(habPix, by.x = "HabPix", by.y = "ID") %>% merge(sdmPix %>% select(SdmPix, all_of(good_models)))
 
 ### Multiple cmeans consensus analysis #####
+abvars <- c("elev", "rugos", "precip", "DDminus5", "coast", "wind")
+bivars <- c("Ochrophyta_____", "Ascomycota_Lecanoromycetes_Lecanorales_Bacidiaceae__", "Rotifera_____", "Ascomycota_Lecanoromycetes_Not assigned_Rhizocarpaceae__", "Arthropoda_Arachnida_Mesostigmata___")
+vars <- c(abvars, bivars)
+
 cldat <- v1 %>% select(vars) %>% na.omit()
 centers <- 8
 itmx <- 10000
 
-cl <- makeCluster(detectCores()-2)
-clusterExport(cl, c("cldat", "sdmPix_weights", "centers", "itmx"))
-clusterEvalQ(cl, 
-             library(e1071))
-
-sdm_hcl <- parLapply(cl, 1:100, function(x) cmeans(cldat, centers = centers[x], iter.max = itmx, 
-                     verbose = FALSE, dist = "euclidean", method = "ufcl", 
-                     m = 2, rate.par = 0.3, weights = sdmPix_weights$weight))
-
-stopCluster(cl)
+sdm_hcl <- cmeans_multi(cldat, weights = sdmPix_weights, centres = centers, iter = itmx, reps = 100)
 
 sdmPix_weights <-  data.frame(sdmPix_weights, purrr::map(sdm_hcl, ~as.factor(.$cluster)) %>% reduce(data.frame)) %>%
   setNames(c(names(sdmPix_weights), paste0("hcl", centers, "W", 1:length(sdm_hcl), ".itmx", itmx)))
@@ -138,7 +122,7 @@ PA1 <- reshape2::dcast(t, Functional_group~unit, fun.aggregate = length, value.v
   na.omit() %>% namerows()
 PA <- tobinary.single(PA1)
 tPA <- t(PA)
-g <- network_analysis(tPA, threshold = 0.985)
+g <- network_analysis(tPA, threshold = 0.996)
 
 consensus <- merge(v1 %>% select(SdmPix, cell, weight, x, y, ACBR_Name), 
                    sdmPix_weights %>% select(SdmPix, consensus, agreement), all = TRUE) %>%
@@ -211,7 +195,7 @@ units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
 
 ## Consensus using SDM pseduopresences ####
 # used to classify pixels with no environmental data and merge units which are too small #
-thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.85))
+thresh <- sapply(1:34, function(i) scale(v[,i]) %>% range(na.rm = TRUE) %>% quantile(0.5))
 PA <- lapply(1:34, function(i) scale(v[,i]) >= thresh[i]) %>% reduce(data.frame) %>%
     apply(2, as.numeric) %>% data.frame() %>% setNames(n)
 rownames(PA) <- rownames(v)
@@ -232,12 +216,6 @@ contable$score <- FETmP(contable)
 neighbors <- contable %>% split(.$cell) %>% purrr::map(~filter(., score > 0.98)) %>% 
   purrr::map(~.$unit[order(.$score, decreasing = TRUE)] %>% as.numeric())
 neighbors <- neighbors[sapply(neighbors, length) > 0]
-
-# visual check
-i <- 1
-plot(y~x, data = sdmPix, pch = 16, cex = 0.1)
-points(y~x, data = units %>% filter(consensus2 == 54), col = "green", pch = 3, cex = 1)
-points(y~x, data = units %>% filter(cell == names(neighbors)[1]), col = "red", pch = 3)
 
 ## Spatially nearest units ###
 
@@ -299,9 +277,11 @@ units[as.character(temp$cell),][which(temp$dist > 6),]$unit <- NA
 
 
 
-
-
 ### produce raster and shapefiles ####
+library(raster)
+SDMs <- raster::stack(l)
+crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+
 unitsV1 <- raster(SDMs[[1]])
 
 units <- units[sort(units$cell) %>% as.character(),] 
@@ -310,8 +290,9 @@ unitsV1[cellFromXY(unitsV1, cbind(units$x, units$y))] <- units$consensus2
 #unitsV1 <- setValues(unitsV1, values = units$consensus2, index = units$cell)
 
 writeRaster(unitsV1, filename = "../Data/Typology/typV1_cm_hybrid", 
-            format = "raster", overwrite = TRUE)
+            format = "GTiff", overwrite = TRUE)
 
+detach("package:raster", unload = TRUE)
 ##################
 ######## Summary stats for units ##########
 

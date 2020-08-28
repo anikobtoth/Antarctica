@@ -34,12 +34,14 @@ namerows <- function(table){
   return(table)
 }
 
+# Rowames to first column
 rows2name <- function(table){
   table <- data.frame(name = rownames(table), table)
   table$name <- as.character(table$name)
   
   return(table)
 }
+
 # remove empty rows and columns in 1 matrix
 # or remove rows and columns with too few observations
 clean.empty <- function(x, mincol = 1, minrow = 1){
@@ -186,21 +188,16 @@ FETmP_ <- function(presSp1, presSp2, presBoth, samples){
 }
 
 
-cmeans_pca <- function(x, vars=names(x), groups=6, weights=1, iter = 1000){
-  clust <- cmeans(x %>% select(vars), 
-         groups, iter.max = iter, verbose = TRUE, 
-         dist = "euclidean", method = "ufcl", m = 2, 
-         rate.par = 0.3, weights = weights)
-
-  pca <- princomp(x %>% select(vars)) 
+cmeans_multi <- function(dat, weights=1, centres = 8, iter = 1000, reps = 100){
+  cl <- makeCluster(detectCores()-2)
+  clusterExport(cl, c("dat", "weights", "centres", "iter"), envir=environment())
+  clusterEvalQ(cl, library(e1071))
   
-  x$clust <- clust$cluster %>% as.factor()
-  
-  plot <- autoplot(pca, data =x , col = "clust", 
-           loadings = TRUE, loadings.label = TRUE, 
-           loadings.label.size = 2)
-  
-  return(list(clust, pca, x, plot))
+  sdm_hcl <- parLapply(cl, 1:reps, function(x) cmeans(dat, centers = centres, iter.max = iter, 
+                                                     verbose = FALSE, dist = "euclidean", method = "ufcl", 
+                                                     m = 2, rate.par = 0.3, weights = weights$weight))
+  stopCluster(cl)
+  return(sdm_hcl)
 }
 
 network_analysis <- function(x, threshold = 0.8){
@@ -214,44 +211,6 @@ network_analysis <- function(x, threshold = 0.8){
   return(list(g, clust))
 }
 
-### Forbes index functions by J. Alroy ###
-##### Available from http://bio.mq.edu.au/~jalroy/Forbes.R ###
-##### help page http://bio.mq.edu.au/~jalroy/Forbes.html ###
-
-forbes<-function(x,y,corrected)	{
-  if (missing(corrected))	{
-    corrected <- T
-  }
-  if (is.numeric(x) && is.numeric(y) && min(x) == 0 && min(y) == 0 && length(x) == length(y))	{
-    a <- length(which((x * y) > 0))
-    b <- length(which(x > 0)) - a
-    c <- length(which(y > 0)) - a
-  } else	{
-    a <- length(na.omit(match(x,y)))
-    b <- length(x) - a
-    c <- length(y) - a
-  }
-  n <- a + b + c
-  if (corrected == T)	{
-    return(a * (n + sqrt(n))/((a + b) * (a + c) + a * sqrt(n) + (b * c)/2))
-  } else	{
-    return(a * n/((a + b) * (a + c)))
-  }
-}
-
-forbesMatrix<-function(x,corrected)	{
-  x[is.na(x)] <- 0
-  m = matrix(nrow=ncol(x),ncol=ncol(x))
-  for (i in 1:ncol(x))	{
-    for (j in 1:ncol(x))	{
-      m[i,j] = forbes(x[,i],x[,j],corrected)
-    }
-  }
-  m <- as.data.frame(m)
-  rownames(m) <- colnames(x)
-  colnames(m) <- colnames(x)
-  return(m)
-}
 
 
 #### Extract sites of species #
