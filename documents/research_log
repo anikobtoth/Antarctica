@@ -304,6 +304,14 @@ TO DO:
 
 
 
+9 September 2020
+
+Recently finished full code for a hierarchical factor analysis using habitats first and SDM suitability second. Pixels without habitat data are classified using neighboring pixels if their centroids are on the mainland and they have a classified neighbour. Leftover pixels (usually islands) get their own habitat group. Each habitat gets a unique number of SDM-based subfactors. The number for each habitat is chosen based on variance explained (stop when adding a factor explains less than 1% more variance). Any pixels unclassified at the second level are again classified based on immediate neighbours, if possible. If not possible, they are left unclassified.
+
+Produced a full typology using 9 habitats (+ islands/coast as a 10th), with a total of 50 units. Each of the top-level units also had a number of members that couldn't be classified with SDM-based factors (a total of 1884 pixels). 
+
+I have thus far received very little feedback about the exploratory factor analyses I placed in oneDrive directly after the meeting. However, the current code can be easily modified to accommodate eventual decisions brought by the group. 
+
 
 
 
