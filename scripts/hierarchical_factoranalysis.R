@@ -2,6 +2,7 @@ library(fields)
 library(tidyverse)
 library(nFactors)
 library(psych)
+library(rgdal)
 
 antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
 load("C:/Users/Aniko/OneDrive - UNSW/Antarctica/Antarctica/data/DB_habPix.RData")
@@ -56,10 +57,13 @@ rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 
 ## Factor analysis h1
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
+dat <- cldat %>% select(-coast, -geoT)
+dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(min(x[x > 0])/10, 1-(min(x[x > 0])/10)), margin = 2)) %>% data.frame()
+dat <- sapply(dat, qnorm)
 
-cv <- lapply(2:14, function(x) fa(scale(cldat), x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>% sapply(last)
+cv <- lapply(2:11, function(x) fa(scale(cldat), x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>% sapply(last)
 
-nfact <- 9
+nfact <- 7
 fa1 <- fa(cldat, nfact, rotate = "varimax" )
 sc <- data.frame(fa1$scores)
 pdat <- data.frame(na.omit(v1[,1:6]), sc)
@@ -97,6 +101,7 @@ v1[paste(temp$x, temp$y, sep = "_"),]$consensus <- temp$consensus
 v1$consensus <- factor(v1$consensus, levels = 1:(nfact + 1))
 v1$consensus[is.na(v1$consensus)] <- (nfact + 1)
 
+detach("package:fields", unload = TRUE)
 detach("package:maps", unload = TRUE)
 
 ###### Hierarchical Factor analysis ############
@@ -110,7 +115,7 @@ hfa <- map2(cldat %>% split(.$consensus), nfact, function(x, y) fa(x %>% select(
 hfasc <- map(hfa, ~.$scores) %>% map(na.omit)
 consensus2 <- map(hfasc, ~apply(., 1, which.max)) %>% map(data.frame) %>% map(setNames, c("consensus2")) %>% bind_rows(.id = "consensus") 
  
-out <- merge(v1, consensus2, by = 0, all = TRUE) %>% select(x, y, lon, lat, Prop_in_IFA, consensus, consensus2)
+out <- merge(v1, consensus2, by = 0, all = TRUE) %>% select(x, y, lon, lat, Prop_in_IFA, consensus.x, consensus2)
 rownames(out) <- paste(out$x, out$y, sep = "_")
 ### Classify unclassified h2 pixels ####
 
@@ -118,14 +123,14 @@ v0 <- out %>% filter(is.na(consensus2))
 v2 <- out %>% filter(!is.na(consensus2))
 # to decrease computational burden 
 v3 <- v2 %>% filter(x %in% unique(v0$x, v0$x+1000, v0$x - 1000) & y %in% unique(v0$y, v0$y+1000, v0$y - 1000))
-
+library(fields)
 dists <- rdist.earth(v0[,c("lon", "lat")], v3[,c("lon", "lat")], miles = F)
 temp <- v3[dists %>% apply(1, which.min),] %>% mutate(dist = dists %>% apply(1, min)) 
 temp <- data.frame(x0 = v0$x, y0 = v0$y, consensus = v0$consensus.x, temp) %>% filter(dist < 1.5 & consensus == consensus.x)
 
 out[paste(temp$x0, temp$y0, sep = "_"),]$consensus2 <- temp$consensus2
 out <- out %>% mutate(unit = paste0("h", consensus.x, "_sdm", consensus2))
-
+rownames(out) <- paste(out$x, out$y, sep = "_")
 ## Make rasters ####
 library(raster)
 hP <- raster("../Data/Habitats/habpix_ifaext")
@@ -136,7 +141,7 @@ unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500,
 unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- out$unit %>% as.factor() %>% as.numeric()
 #unitsV1 <- setValues(unitsV1, values = units$consensus2, index = units$cell)
 
-writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_hier", 
+writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_hier_12v", 
             format = "GTiff", overwrite = TRUE)
 
 detach("package:raster", unload = TRUE)
