@@ -313,7 +313,15 @@ Produced a full typology using 9 habitats (+ islands/coast as a 10th), with a to
 I have thus far received very little feedback about the exploratory factor analyses I placed in oneDrive directly after the meeting. However, the current code can be easily modified to accommodate eventual decisions brought by the group. 
 
 
+24 September 2020
 
+On Aleks's suggestion, recently completed a dual factor analysis code that creates separate analyses for environmental data and SDM suitability data, and uses the intersection of the two for a candidate typology.  The hierarchical and dual factor analyses are identical on the first level, but some statistical tests confirm that there are significant similarities in the SDM-based classification when it is done within habitat units and for the whole continent at once. This is not surprising. Some visual checks, however, do show that very few units in the hierarchical analysis are more than 60% aligned with a unit in the dual analysis. 
+
+The two candidate typologies seem to partially agree on areas with more or less spatial heterogeneity, though the dual analysis tends to have a bit less heterogeneity than the hierarchical analysis in any given locality, although not always. The dual factor analysis also has more units than the hierarchical analysis. 
+
+I've fixed both analyses to be run on transformed data that more closely approximates normal distributions, removed distances (dist to coast, dist to geothermal), and fixed the nearest-neighbor analyses to work on all pixels such that only truly coastal pixels end up in the "islands" category. 
+
+I'm beginning to work on a manuscript presenting the typology, thinking about how to frame such a paper.
 
 
 
