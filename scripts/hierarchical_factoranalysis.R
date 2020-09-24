@@ -59,9 +59,9 @@ rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
 dat <- cldat %>% select(-coast, -geoT)
 dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(min(x[x > 0])/10, 1-(min(x[x > 0])/10)), margin = 2)) %>% data.frame()
-dat <- sapply(dat, qnorm)
+cldat <- sapply(dat, qnorm) %>% scale()
 
-cv <- lapply(2:11, function(x) fa(scale(cldat), x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>% sapply(last)
+#cv <- lapply(2:11, function(x) fa(cldat, x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>% sapply(last)
 
 nfact <- 7
 fa1 <- fa(cldat, nfact, rotate = "varimax" )
@@ -72,7 +72,7 @@ pdat$consensus <- apply(sc, 1, which.max) %>% factor()
 
 plot(antarctica)
 points(y~x, data = pdat, col = hsv(as.numeric(pdat$consensus)/nfact), 
-     pch = 16, cex = 0.1)
+       pch = 16, cex = 0.1)
 
 v1 <- full_join(pdat %>% select(-starts_with("MR")), v1)
 rownames(v1) <- paste(v1$x, v1$y, sep = "_")
@@ -82,20 +82,20 @@ rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 ## points without abiotic data ##
 ## If (1) centroid inside mainland and (2) an immediate neighbour is classified then match to nearest neighbor
 ## Else -- coastal pixels and islands receive their own h1 category.
-
-v0 <- v1 %>% filter(is.na(consensus))
+z <- length(which(is.na(v1$consensus)))
+v0 <- v1 %>% filter(is.na(consensus)) #%>% split(factor(rep_len(1:round(z/3000), length.out = z))) # split to decrease comp load
 v2 <- v1 %>% filter(!is.na(consensus))
+v2 <- v2 %>% filter(x %in% unique(v0$x, v0$x+1000, v0$x - 1000) & y %in% unique(v0$y, v0$y+1000, v0$y - 1000))
 
-# On mainland
-ovr <- sp::over(SpatialPoints(coords = cbind(v0$x, v0$y), proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")), antarctica)
-# neighbours of mainland pixels
-v0m <- v0[!is.na(ovr$gid),]
-temp <- v2[rdist.earth(v0m[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, which.min),] %>% 
-  select(x, y, lon, lat, consensus) %>% 
-  mutate(dist = rdist.earth(v0m[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, min)) 
-temp <- data.frame(x = v0m$x, y = v0m$y, consensus = temp$consensus, dist = temp$dist) %>% filter(dist < 1.5)
-
-v1[paste(temp$x, temp$y, sep = "_"),]$consensus <- temp$consensus
+# split into sections to decrease comp load
+for(v0m in v0){
+  temp <- v2[rdist.earth(v0m[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, which.min),] %>% 
+    select(x, y, lon, lat, consensus) %>% 
+    mutate(dist = rdist.earth(v0m[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, min)) 
+  temp <- data.frame(x = v0m$x, y = v0m$y, consensus = temp$consensus, dist = temp$dist) %>% filter(dist < 1.5)
+  
+  v1[paste(temp$x, temp$y, sep = "_"),]$consensus <- temp$consensus
+}
 
 # pixels off mainland or with no classified neighbors fall in separate category
 v1$consensus <- factor(v1$consensus, levels = 1:(nfact + 1))
@@ -122,10 +122,10 @@ rownames(out) <- paste(out$x, out$y, sep = "_")
 v0 <- out %>% filter(is.na(consensus2))
 v2 <- out %>% filter(!is.na(consensus2))
 # to decrease computational burden 
-v3 <- v2 %>% filter(x %in% unique(v0$x, v0$x+1000, v0$x - 1000) & y %in% unique(v0$y, v0$y+1000, v0$y - 1000))
+v2 <- v2 %>% filter(x %in% unique(v0$x, v0$x+1000, v0$x - 1000) & y %in% unique(v0$y, v0$y+1000, v0$y - 1000))
 library(fields)
-dists <- rdist.earth(v0[,c("lon", "lat")], v3[,c("lon", "lat")], miles = F)
-temp <- v3[dists %>% apply(1, which.min),] %>% mutate(dist = dists %>% apply(1, min)) 
+dists <- rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F)
+temp <- v2[dists %>% apply(1, which.min),] %>% mutate(dist = dists %>% apply(1, min)) 
 temp <- data.frame(x0 = v0$x, y0 = v0$y, consensus = v0$consensus.x, temp) %>% filter(dist < 1.5 & consensus == consensus.x)
 
 out[paste(temp$x0, temp$y0, sep = "_"),]$consensus2 <- temp$consensus2
