@@ -108,8 +108,8 @@ detach("package:maps", unload = TRUE)
 cldat <- v1 %>% dplyr::select(all_of(good_models), consensus)
 
 # variance analysis
-cvs <- cldat %>% na.omit() %>% split(.$consensus) %>% map(function(y) map(2:20, function(x) fa(y %>% select(-consensus), nfactors = x, rotate = "varimax")$Vaccounted["Cumulative Var",]) %>% sapply(last))
-nfact <- sapply(cvs, function(x) which(diff(x) < 0.01) %>% first())
+cvs <- cldat %>% na.omit() %>% split(.$consensus) %>% map(function(y) map(2:12, function(x) fa(y %>% select(-consensus), nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% apply(2, max)) %>% sapply(min))
+nfact <- sapply(cvs, function(x) which(x >= 0.35) %>% last())
 
 hfa <- map2(cldat %>% split(.$consensus), nfact, function(x, y) fa(x %>% select(-consensus,), nfactors = y, rotate = "varimax"))
 hfasc <- map(hfa, ~.$scores) %>% map(na.omit)
