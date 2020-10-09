@@ -2,6 +2,9 @@
 library(sp)
 library(rlang)
 library(gmp)
+library(BBmisc)
+library(psych)
+library(fields)
 
 ##### DATA MANIPULATION #####
 ### Change character vectors in df to factors
@@ -94,6 +97,46 @@ cont_table <- function(x){
 }
 
 ##### ANALYSES ######
+#wrapper for fa() that chooses factor number based on importance of factor loadings
+factor_analysis <- function(dat, mincomp = 0.35){
+  message("Choosing number of factors")
+  dat <- dat %>% na.omit()
+  rn <- rownames(dat)
+  dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(min(x[x > 0])/10, 1-(min(x[x > 0])/10)), margin = 2)) %>% data.frame()
+  dat <- sapply(dat, qnorm) %>% scale()
+  
+  cvs <- map(2:ncol(dat), function(x) fa(dat, nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% abs() %>% apply(2, max)) %>% sapply(min)
+  nfact <<- 1+ length(which(cvs >=mincomp))
+  
+  message(paste("Running factor analysis with", nfact, "factors"))  
+  fa1 <- fa(dat, nfact, rotate = "varimax" )
+  sc <- data.frame(fa1$scores)
+  
+  consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)
+  
+  return(consensus)
+}
+
+# classifies unclassified pixels in column "var" with nearest neighbour
+classify_by_neighbours <- function(dat, var, maxdist = 1.5){
+  library(fields)
+ 
+  v0 <- dat %>% filter(is.na({{ var }})) 
+  v2 <- dat %>% filter(!is.na({{ var }}))
+  
+  if(nrow(v0) > 0){
+    v2 <- v2 %>% filter(x %in% unique(v0$x, v0$x+1000, v0$x - 1000) & y %in% unique(v0$y, v0$y+1000, v0$y - 1000))
+    temp <- v2[rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, which.min),] %>% 
+      select(x, y, lon, lat, {{var}}) %>% 
+      mutate(dist = rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, min)) %>% select({{var}}, dist)
+    temp <- data.frame(x = v0$x, y = v0$y, temp) %>% filter(dist < maxdist)
+    message(paste("Classifying", nrow(temp), "unclassified pixels."))
+    dat[paste(temp$x, temp$y, sep = "_"),][[as.character(enquo(var))[2]]] <- temp[[as.character(enquo(var))[2]]]
+    }
+  
+  return(dat)
+}
+
 # FETmP
 simpairs <- function(x){ #simpairs function, simpairs only out
   samples = ncol(x)  #S
