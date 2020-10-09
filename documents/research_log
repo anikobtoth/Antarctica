@@ -324,4 +324,13 @@ I've fixed both analyses to be run on transformed data that more closely approxi
 I'm beginning to work on a manuscript presenting the typology, thinking about how to frame such a paper.
 
 
+9 Oct 2020
+
+I've greatly abstracted, cleaned, and simplified the factor analysis code. It now performs hierarchical (environmental then sdm), dual (environmental and sdm for entire continent) and reverse hierarchical (sdm then environmental) factor analyses. 
+
+A cursory analysis suggests reassuring amount of agreement between the two hierarchical approaches.
+The dual analysis may show slightly better agreement with the reverse hierarchical approach (sdm factors first).
+
+
+
 
