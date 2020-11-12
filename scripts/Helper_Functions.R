@@ -105,7 +105,7 @@ factor_analysis <- function(dat, mincomp = 0.35){
   dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(min(x[x > 0])/10, 1-(min(x[x > 0])/10)), margin = 2)) %>% data.frame()
   dat <- sapply(dat, qnorm) %>% scale()
   
-  cvs <- map(2:ncol(dat), function(x) fa(dat, nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% abs() %>% apply(2, max)) %>% sapply(min)
+  cvs <- purrr::map(2:ncol(dat), function(x) fa(dat, nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% abs() %>% apply(2, max)) %>% sapply(min)
   nfact <<- 1+ length(which(cvs >=mincomp))
   
   message(paste("Running factor analysis with", nfact, "factors"))  

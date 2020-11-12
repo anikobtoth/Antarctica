@@ -56,18 +56,18 @@ v1$V1 <- factor(v1$V1)
 v1 <- classify_by_neighbours(v1, V1)
 
 ###### Hierarchical Factor analysis L2 (SDM data) ############
-cldat <- v1 %>% split(.$consensus) %>% map(~dplyr::select(., all_of(good_models)))
-pdat <- map(cldat, factor_analysis)
+cldat <- v1 %>% split(.$consensus) %>% purrr::map(~dplyr::select(., all_of(good_models)))
+pdat <- purrr::map(cldat, factor_analysis)
 v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("consensus2")) %>% merge(v1, by = 0, all = TRUE) %>% namerows()
 # Classify unclassified L2 pixels 
-v1 <- v1 %>% split(.$consensus) %>% map(classify_by_neighbours, consensus2) %>% bind_rows()
+v1 <- v1 %>% split(.$consensus) %>% purrr::map(classify_by_neighbours, consensus2) %>% bind_rows()
 
 ###### Reverse Hierarchical Factor analysis L2 (abiotic variables) ############
-cldat <- v1 %>% split(.$V1) %>% map(~dplyr::select(., all_of(abiotic)))
-pdat <- map(cldat, factor_analysis)
+cldat <- v1 %>% split(.$V1) %>% purrr::map(~dplyr::select(., all_of(abiotic)))
+pdat <- purrr::map(cldat, factor_analysis)
 v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("consensusA2")) %>% merge(v1, by = 0, all = TRUE) %>% namerows()
 # Classify unclassified L2 pixels 
-v1 <- v1 %>% split(.$V1) %>% map(classify_by_neighbours, consensusA2) %>% bind_rows()
+v1 <- v1 %>% split(.$V1) %>% purrr::map(classify_by_neighbours, consensusA2) %>% bind_rows()
 
 
 ##### Create output rasters ###############
@@ -80,13 +80,12 @@ rownames(out) <- paste(out$x, out$y, sep = "_")
 
 ## Make rasters #
 library(raster)
-hP <- raster("../Data/Habitats/habpix_ifaext")
 
 unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500, 
                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
                   nrows = 4195, ncols = 5246)
-unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- out$unit %>% as.factor() %>% as.numeric()
-writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_hier_12v", 
+unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- out$unit_r %>% as.factor() %>% as.numeric()
+writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_revhier_12v", 
             format = "GTiff", overwrite = TRUE)
 
 detach("package:raster", unload = TRUE)
