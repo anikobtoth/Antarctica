@@ -70,13 +70,15 @@ v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("con
 v1 <- v1 %>% split(.$V1) %>% map(classify_by_neighbours, consensusA2) %>% bind_rows()
 
 
+##### Create output rasters ###############
 out <- v1 %>% select(-all_of(n), -all_of(abiotic), -coast, -geoT) %>% 
   mutate(unit_h = paste0("env", consensus, "_sdm", consensus2),
          unit_d = paste0("env", consensus, "_sdm", V1), 
          unit_r = paste0("sdm", V1, "_env", consensusA2))
 
 rownames(out) <- paste(out$x, out$y, sep = "_")
-## Make rasters ####
+
+## Make rasters #
 library(raster)
 hP <- raster("../Data/Habitats/habpix_ifaext")
 
@@ -84,8 +86,6 @@ unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500,
                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
                   nrows = 4195, ncols = 5246)
 unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- out$unit %>% as.factor() %>% as.numeric()
-#unitsV1 <- setValues(unitsV1, values = units$consensus2, index = units$cell)
-
 writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_hier_12v", 
             format = "GTiff", overwrite = TRUE)
 
@@ -144,5 +144,5 @@ for(i in 1:9){
 
 
 ##############
-#############
+
 
