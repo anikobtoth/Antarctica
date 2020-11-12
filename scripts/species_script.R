@@ -8,7 +8,7 @@ source('./scripts/Helper_Functions.R')
 # Load data ####
 occurrences <- read_csv("data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
-occurrences <- occurrences %>% select(scientificName, vernacularName, 
+occurrences <- occurrences %>% dplyr::select(scientificName, vernacularName, 
                                       decimalLongitude, decimalLatitude, 
                                       ACBR_ID, ASPA_ID, Date, year, Publish_YEAR, 
                                       kingdom, phylum , class, 
@@ -21,10 +21,41 @@ occurrences <- occurrences %>% select(scientificName, vernacularName,
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 
 ## Species data ####
-sppDat <- occ %>% select(scientific, vernacular, Functional_group, kingdom, phylum, 
+sppDat <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                          class, order_, family, genus, species) %>% unique()
 
 
+indepFG <- sppDat %>% filter(!Functional_group %in% good_models) %>% pull(Functional_group) %>% na.omit() %>% unique()
+occurrences <- full_join(sppDat[,c("scientific", "Functional_group")], occurrences, by = c("scientific" = "scientificName")) %>% unique()
+## Choose point occurrences that were not used in SDM factor analysis 
+indepOCC <- occurrences %>% filter(Functional_group %in% indepFG)
+
+indocc <- SpatialPointsDataFrame(coords = indepOCC[,c("decimalLongitude", "decimalLatitude")],
+                                 data = indepOCC, 
+                                 proj4string = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+
+indocc <- spTransform(indocc, "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+library(raster)
+typ_fah <- raster("../Data/Typology/typV2_fa_hier_12v.tif")
+typ_fad <- raster("../Data/Typology/typV2_fa_dual_12v.tif")
+typ_far <- raster("../Data/Typology/typV2_fa_revhier_12v.tif")
+
+indepOCC$fah <- raster::extract(typ_fah, indocc)
+indepOCC$fad <- raster::extract(typ_fad, indocc)
+indepOCC$far <- raster::extract(typ_far, indocc)
+
+PA_fah <- indepOCC %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+PA_fad <- indepOCC %>% reshape2::dcast(scientific~fad, fun.aggregate = length) %>% namerows()
+PA_far <- indepOCC %>% reshape2::dcast(scientific~far, fun.aggregate = length) %>% namerows()
+
+vegdist(t(PA_fah), method = "bray") %>% mean()
+vegdist(t(PA_fad), method = "bray") %>% mean()
+vegdist(t(PA_far), method = "bray") %>% mean()
+
+
+#### Old stuff #####
+#### Make PA tables with species against ice free polygons ####
 PA0 <- occ %>% select(scientific, Functional_group, OBJECTID, ACBR_Name, phylum, year) %>% 
   filter(#year > 1960 & 
     OBJECTID > 0, !phylum %in% c("Unknown", "Not assigned"))
