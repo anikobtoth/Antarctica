@@ -332,5 +332,10 @@ A cursory analysis suggests reassuring amount of agreement between the two hiera
 The dual analysis may show slightly better agreement with the reverse hierarchical approach (sdm factors first).
 
 
+12 Nov 2020
+First attempt at candidate typology "validation" is to see which typology (hierarchical, dual, or reverse hierarchical) aligns with greatest turnover between candidate units in point occurrences of species that were not used in the classification process (no SDM). So far, all measures point to the hierarchical candidate typology as providing the most turnover, though turnover is generally pretty low (similarity is high) among the candidate units. Reverse hierarchical approach is second best and the dual approach is worst. However, the difference between them is pretty small, a few percentage points at best. 
+
+
+
 
 
