@@ -50,6 +50,16 @@ PA_fah <- indepOCC %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %
 PA_fad <- indepOCC %>% reshape2::dcast(scientific~fad, fun.aggregate = length) %>% namerows()
 PA_far <- indepOCC %>% reshape2::dcast(scientific~far, fun.aggregate = length) %>% namerows()
 
+## Correlation tests between units in each candidate typology
+cor(PA_fah, PA_fah) %>% as.dist() %>% median()
+cor(PA_fad, PA_fad) %>% as.dist() %>% median()
+cor(PA_far, PA_far) %>% as.dist() %>% median()
+
+## simpairs beta-diversity test 
+simpairs(t(PA_fah)) %>% unlist() %>% na.omit() %>% hist()
+simpairs(t(PA_fad)) %>% unlist() %>% na.omit() %>% hist()
+simpairs(t(PA_far)) %>% unlist() %>% na.omit() %>% hist()
+
 # zero inflated poisson model for a test case
 M3 <- zeroinfl(`1` ~ `2` | ## Predictor for the Poisson process
                  `2`, ## Predictor for the Bernoulli process;
