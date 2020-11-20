@@ -3,6 +3,7 @@ library(igraph)
 library(ggalluvial)
 library(reshape2)
 library(RColorBrewer)
+library(vegan)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
@@ -49,10 +50,16 @@ PA_fah <- indepOCC %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %
 PA_fad <- indepOCC %>% reshape2::dcast(scientific~fad, fun.aggregate = length) %>% namerows()
 PA_far <- indepOCC %>% reshape2::dcast(scientific~far, fun.aggregate = length) %>% namerows()
 
-vegdist(t(PA_fah), method = "bray") %>% mean()
-vegdist(t(PA_fad), method = "bray") %>% mean()
-vegdist(t(PA_far), method = "bray") %>% mean()
+# zero inflated poisson model for a test case
+M3 <- zeroinfl(`1` ~ `2` | ## Predictor for the Poisson process
+                 `2`, ## Predictor for the Bernoulli process;
+               dist = 'poisson',
+               data = PA_fah)
 
+E2 <- resid(M3, type = "pearson")
+N  <- nrow(PA_fah)
+p  <- length(coef(M3)) + 1  # '+1' is for variance parameter in NB
+sum(E2^2) / (N - p)
 
 #### Old stuff #####
 #### Make PA tables with species against ice free polygons ####

@@ -254,6 +254,39 @@ network_analysis <- function(x, threshold = 0.8){
   return(list(g, clust))
 }
 
+cont_table <- function(x){ #simpairs function, simpairs only out
+  samples = ncol(x)  #S
+  a = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
+  occs = array()
+  
+  #Calculate overlap
+  for (i in 2:nrow(x))  {
+    for (j in 1:(i-1))
+    {
+      a[i,j] = length(which(x[i,] > 0 & x[j,] > 0)) # B
+    }
+  }
+  
+  a <- as.dist(a, diag = F, upper = F)
+  
+  l <- dist2edgelist(a, x)
+  s <- rowSums(x) %>% data.frame()
+  
+  t <- merge(l, s, by.x = "Sp1", by.y = 0)
+  t <- merge(t, s, by.x = "Sp2", by.y = 0)
+  t <- t %>% select(Sp1, Sp2, ..x, ..y, Z.Score)
+  t$samples <- ncol(x)
+  names(t) <- c("Sp1", "Sp2", "presSp1", "presSp2", "presBoth", "samples")
+  t$absSp1 <- t$samples - t$presSp1
+  t$absSp2 <- t$samples - t$presSp2
+  
+  #t$presSp1absSp2 <- t$presSp1- t$presBoth
+  #t$presSp2absSp1 <- t$presSp2- t$presBoth
+  
+  #t$absBoth <- t$samples - t$presBoth - t$presSp1absSp2 - t$presSp2absSp1
+  
+  return(t)
+}
 
 
 #### Extract sites of species #
