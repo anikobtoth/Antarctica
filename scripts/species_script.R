@@ -71,6 +71,20 @@ N  <- nrow(PA_fah)
 p  <- length(coef(M3)) + 1  # '+1' is for variance parameter in NB
 sum(E2^2) / (N - p)
 
+# Compositional uniqueness of candidate units (using non-SDM species only)
+
+singletons <- rownames(PA_fah)[which(rowSums(PA_fah) == 1)]
+doubletons <- rownames(PA_fah)[which(rowSums(PA_fah) == 2)]
+
+faunas <- lapply(PA_fah, function(x) rownames(PA_fah)[which(x > 0)])
+sapply(faunas, function(x) length(which(x %in% singletons)))
+sapply(faunas, function(x) length(which(x %in% doubletons)))
+
+incid <- apply(PA_far, 1, function(x) x[which(x >0)] %>% sort())
+incid <- incid[which(sapply(incid, length) > 9)]
+# Evenness of species distribution among candiate units
+purrr::map(incid, ~./sum(.)) %>% purrr::map(~. *log(.)) %>% purrr::map_dbl(~ -sum(.)/log(length(.))) %>% mean(na.rm =T)
+
 #### Old stuff #####
 #### Make PA tables with species against ice free polygons ####
 PA0 <- occ %>% select(scientific, Functional_group, OBJECTID, ACBR_Name, phylum, year) %>% 

@@ -91,6 +91,16 @@ writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_revhier_12v",
 detach("package:raster", unload = TRUE)
 
 
+####  Exploratory - canditate units
+rownames(units) <- paste(units$x, units$y, sep = "_")
+habdat <- merge(units, v1, by = 0, all = TRUE)
+hd <- habdat %>% dplyr::select(unit_h, contains("Aves")) %>% 
+  reshape2::melt(id.vars = "unit_h") %>% mutate(unit_h = factor(unit_h))
+
+ggplot(hd, aes(x = unit_h, y = value)) + geom_boxplot() + facet_wrap(~variable, scales = "free")
+
+hd <- hd %>% separate(unit_h, sep = "_", into= c("abiotic", "biotic"))
+ggplot(hd, aes(x = abiotic, col = abiotic, y = value)) + geom_boxplot(outlier.size = .2) + facet_wrap(~variable, scales = "free")
 
 ######### OLD STUFF #########
 #### Exploratory abiotic factor analyses  ##############
