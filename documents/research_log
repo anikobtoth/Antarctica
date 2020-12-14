@@ -339,3 +339,15 @@ First attempt at candidate typology "validation" is to see which typology (hiera
 
 Further rudimentary ecosystem validation shows the dual typology may be the best candidate.  It performs better (showing lower similarity between units) when the richness of units and their overlap is taken into account (simpairs null model) and also when correlations on the relative abundance of species in each unit is considered. Simple beta-diversity metrics are likely skewed here because of large discrepancies in the occupancy of ecosystem units (some contain hundreds of species, other only a handful). Possible zero-inflated poisson model to check coefficient estimates between ecosystem units???
 
+
+14 Dec 2020
+
+Met with Aleks and David.  We decided to stick with the hierarchical factor analysis. Time now to pivot toward individual ecosystem unit draft descriptions. I will start an R markdown doc which will have maps and descriptions of each ecosystem. Some points fromt the meeting: 
+1. We will consider further splitting any ecosystems that occur in disparate locations across the continent.
+2. Need to pick out most distinctive or common biotia and environmental factors for each unit in a standardised way. 
+3. Begin compiling literature for each unit or group of units. 
+
+
+
+
+
