@@ -30,4 +30,4 @@ vignettes/*.pdf
 # Big data files
 data
 results
--DESKTOP-649AB8R.Rhistory
+*.html
