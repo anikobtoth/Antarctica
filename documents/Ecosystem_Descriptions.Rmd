@@ -1,0 +1,147 @@
+---
+title: "Ecosystem Description"
+author: "Aniko B. Toth"
+output: html_document
+---
+
+
+```{r setup, include=FALSE, results = "asis"}
+library(tidyverse)
+library(rgdal)
+library(sp)
+library(cowplot)
+library(raster)
+library(knitr)
+
+#source('../scripts/Helper_Functions.R')
+#load("../data/clean_hier_unit_datasets.RData")
+
+```
+
+## Ecosystem `r cat(unitname, "\n")`
+
+### Distribution
+
+Verbal Description??
+
+Maps - Full map
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+ # Full map
+  ggplot() +  
+    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
+                 fill="gray50", color= NA, size=0.25) +
+    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.5) +
+    scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
+    coord_equal()
+```
+
+Smaller maps
+
+```{r echo=FALSE, fig.width=8, message=FALSE, warning=FALSE}
+  # smaller maps
+  unit$cluster <- dist(unit[,c("x", "y")], method = 'euclidean') %>% hclust(method = 'average') %>% cutree(k = 6)
+  units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 100)) %>% split(.$cluster)
+  df.grids <- units %>% lapply(geo_bounds, buff = 0.15)
+  aspect <- units %>% sapply(aspect_ratio)
+  ant_crops <- df.grids %>% lapply(function(x) crop(antarctica, extent(x)))
+  
+  subplots <- map2(ant_crops, units, function(x,y){
+    p <- ggplot() +  
+      geom_polygon(data = x, aes(x=long, y=lat, group=group), fill="gray50", color= NA, size=0.25) +
+      geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
+      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
+      coord_equal() + theme(legend.position = "none", plot.margin = unit(c(0,0,0,0), "cm")) +
+      scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific)
+    return(p)
+  })
+  
+  subplots <- subplots %>% setNames(paste0("plot", 1:length(subplots)))
+  attach(subplots)
+  plotcmd <- paste0("plot_grid(", paste0("plot", 1:length(subplots), collapse = ","),", rel_widths = aspect)")
+  eval(parse(text = plotcmd))
+
+```
+
+
+### Environment
+
+General description??
+
+Most extreme variables. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot()
+
+```
+
+
+Distinctiveness from rest of antarctica.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
+  geom_boxplot() + facet_wrap(.~variable)
+
+```
+
+
+
+
+### Biota
+
+Top 10 most commonly sampled species in the unit
+```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
+species_sorted <- rownames(PA)[PA %>% pull(count) %>% order(decreasing = TRUE)]
+counts <- PA %>% pull(count) %>% sort(decreasing = TRUE)
+
+i <- 0
+n <- 0
+while(n < 10){
+  i <- i + 1
+  n <- n + length(which(counts == unique(counts)[i]))
+}
+
+most_sampled_species <- data.frame(species = species_sorted[1:n], count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4))
+
+kable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
+```
+
+
+Any well-sampled species that occur MOST commonly in the unit
+
+A list of singletons (only one sampled individual) that are found in the unit
+
+```{r}
+sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
+sampled_species[sampled_species %in% singletons]
+
+```
+
+A list of doubletons (two sampled individuals) found in the unit
+
+```{r}
+
+sampled_species[sampled_species %in% doubletons]
+
+```
+
+Suitability for functional groups?
+
+```{r echo=FALSE, fig.height=10, fig.width=5, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot() + theme(legend.position = "none", axis.text.x = element_text(angle = 90)) 
+
+```
+
+Distinctiveness from rest of antarctica.
+
+```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
+  geom_boxplot() + facet_wrap(.~variable)
+
+```
+
+
+
+### Literature 
+
+List of papers potentially relevant to the unit
