@@ -341,6 +341,379 @@ gg_color_hue <- function(n) {
   hues = seq(15, 375, length = n + 1)
   hcl(h = hues, l = 65, c = 100)[1:n]
 }
+
+#### Mapping ######
+
+geo_bounds <- function(df, buff = 0.1){
+  bufferx <- diff(range(df$x))*buff
+  buffery <- diff(range(df$y))*buff
+  ext <- c(left = min(df$x) - bufferx, 
+             right = max(df$x) + bufferx,
+             bottom = min(df$y) - buffery,
+             top = max(df$y) + buffery)
+  return(ext)
+}
+
+aspect_ratio <- function(df){
+  rangex <- diff(range(df$x))
+  rangey <- diff(range(df$y))
+
+  return(rangex/rangey)
+}
+
+
+#### GBIF Download data 
+gbif_parse <- function(x) {
+  # x is a vector of species names
+  library(RJSONIO)
+  library(RCurl)
+  library(plyr)
+  u <- "http://api.gbif.org/v1/parser/name"
+  res <- fromJSON(
+    postForm(u,
+             .opts = list(postfields = RJSONIO::toJSON(x),
+                          httpheader = c('Content-Type' = 'application/json')))
+  )
+  do.call(rbind.fill, lapply(res, as.data.frame))  
+}
+
+
+download_GBIF_all_species = function (species_list, path) {
+  
+  ## create variables
+  skip.spp.list       = list()
+  GBIF.download.limit = 100000
+  
+  ## for every species in the list
+  for(sp.n in species_list){
+    
+    ## 1). First, check if the f*&%$*# file exists
+    ## data\base\HIA_LIST\GBIF\SPECIES
+    file_name = paste0(path,"/", sp.n, "_GBIF_records.RData")
+    
+    ## If it's already downloaded, skip
+    if (file.exists (file_name)) {
+      
+      print(paste ("file exists for species", sp.n, "skipping"))
+      next
+      
+    }
+    #  create a dummy file
+    dummy = data.frame()
+    save (dummy, file = file_name)
+    sampDat <- occ_search(scientificName = sp.n, limit = 1)
+    
+    ## 2). Then check the spelling...incorrect nomenclature will return NULL result
+    if (is.null(sampDat$meta$count)) {
+      
+      ## now append the species which had incorrect nomenclature to the skipped list
+      ## this is slow, but it works for now
+      print (paste ("Possible incorrect nomenclature", sp.n, "skipping"))
+      nomenclature = paste ("Possible incorrect nomenclature |", sp.n)
+      skip.spp.list <- c(skip.spp.list, nomenclature)
+      next
+      
+    }
+    
+    ## 3). Skip species with no records
+    if (sampDat$meta$count < 1) {
+      
+      ## now append the species which had no records to the skipped list
+      print (paste ("No GBIF records for", sp.n, "skipping"))
+      records = paste ("No GBIF records |", sp.n)
+      skip.spp.list <- c(skip.spp.list, records)
+      next
+      
+    }
+    
+    ## 4). Check how many records there are, and skip if there are over 200k
+    if (sampDat$meta$count > GBIF.download.limit) {
+      
+      ## now append the species which had > 200k records to the skipped list
+      print (paste ("Number of records > max for GBIF download via R (100,000)", sp.n))
+      max =  paste ("Number of records > 200,000 |", sp.n)
+      
+      
+      ## and send a request to GBIF for download
+      # message("Sending request to GBIF to download ", sp.n, " using rgbif :: occ_download")
+      # key  <- name_backbone(name = sp.n, rank = 'species')$usageKey
+      # GBIF = occ_download(paste('taxonKey = ', key),  user = "popple_1500", pwd = "Popple1500", email = "hugh.burley@mq.edu.au")
+      # save(GBIF, file = paste(path, sp.n, "_GBIF_request.RData", sep = ""))
+      # skip.spp.list <- c(skip.spp.list, max)
+      
+    } else {
+      
+      ## 5). Download ALL records from GBIF
+      message("Downloading GBIF records for ", sp.n, " using rgbif :: occ_data")
+      key <- name_backbone(name = sp.n, rank = 'species')$usageKey
+      # x = name_lookup(sp.n)
+      # keys = x$data$key
+      # 
+      # GBIF <- keys %>%         
+      #   
+      #   ## pipe the list into lapply
+      #   lapply(function(x) {
+      #     
+      #     ## Create the character string
+      #     f <- occ_data(taxonKey = x, limit = GBIF.download.limit)
+      #     f =  as.data.frame(f$data)
+      #     ## Load each .RData file
+      #     
+      #   }) %>%
+      #   
+      #   ## Finally, bind all the rows together
+      #   dplyr::bind_rows
+      
+      GBIF <- occ_data(taxonKey = key, limit = GBIF.download.limit)
+      GBIF <- as.data.frame(GBIF$data)
+      
+      cat("Synonyms returned for :: ",  sp.n, unique(GBIF$scientificName), sep="\n")
+      cat("Names returned for :: ", sp.n, unique(GBIF$name),               sep="\n")
+      cat("Takonkeys returned for :: ", sp.n, unique(GBIF$taxonKey),       sep="\n")
+      
+      ## Could also only use the key searched, but that could knock out a lot of species
+      #GBIF = GBIF[GBIF$taxonKey %in% key, ]
+      #View(GBIF[c("name", "scientificName", "taxonKey")])
+      
+      message(dim(GBIF)[1], " Records returned for ", sp.n)
+      
+      ## 6). save records to .Rdata file, note that using .csv files seemed to cause problems...
+      #save(GBIF, file = paste(path, sp.n, "_GBIF_records.RData", sep = ""))
+      save(GBIF, file = file_name)
+      
+    }
+    
+  }
+  
+  return(skip.spp.list)
+  
+}
+
+load.GBIF <- function(x, GBIF_path) {
+  
+  ## Create a character string of each .RData file
+  f <- sprintf(paste0(GBIF_path, "/%s"), x)
+  ## Load each file
+  d <- get(load(f))
+  ## Now drop the columns which we don't need
+  message ('Reading GBIF data for ', x)
+  ## Check if the dataframes have data
+  if (nrow(d) <= 2) {
+    
+    ## If the species has < 2 records, escape the loop
+    print (paste ("No GBIF records for ", x, " skipping "))
+    return (d)
+    
+  }
+  dat <- data.frame(searchTaxon = x, d[, colnames(d) %in% gbif.keep],
+                    stringsAsFactors = FALSE)
+  
+  if(!is.character(dat$gbifID)) {
+    
+    dat$gbifID <- as.character(dat$gbifID)
+    
+  }
+  
+  ## Need to print the object within the loop
+  names(dat)[names(dat) == 'decimalLatitude']  <- 'lat'
+  names(dat)[names(dat) == 'decimalLongitude'] <- 'lon'
+  dat$searchTaxon = gsub("_GBIF_records.RData", "", dat$searchTaxon)
+  return(dat)
+  
+}
+
+get_gbif_taxonomy <- function (x, subspecies = TRUE, higherrank = FALSE, verbose = FALSE, 
+                               fuzzy = TRUE, conf_threshold = 90, resolve_synonyms = TRUE) 
+{
+  matchtype = status = confidence = NULL
+  temp <- taxize::get_gbifid_(x, messages = verbose)
+  for (i in 1:length(temp)) {
+    warning_i = ""
+    synonym_i = FALSE
+    if (nrow(temp[[i]]) == 0) {
+      warning_i <- paste("No matching species concept!")
+      temp[[i]] <- data.frame(scientificName = x[i], matchtype = "NONE", 
+                              status = "NA", rank = "species")
+    }
+    if (!fuzzy & nrow(temp[[i]]) > 0) {
+      temp[[i]] <- subset(temp[[i]], matchtype != "FUZZY")
+      if (nrow(temp[[i]]) == 0) {
+        warning_i <- paste(warning_i, "Fuzzy matching might yield results.")
+      }
+    }
+    if (!is.null(conf_threshold) & nrow(temp[[i]]) > 0) {
+      temp[[i]] <- subset(temp[[i]], confidence >= conf_threshold)
+      if (nrow(temp[[i]]) == 0) {
+        temp[[i]] <- data.frame(scientificName = x[i], 
+                                matchtype = "NONE", status = "NA", rank = "species")
+        warning_i <- paste(warning_i, "No match! Check spelling or lower confidence threshold!")
+      }
+    }
+    if (any(temp[[i]]$status == "ACCEPTED")) {
+      temp[[i]] <- subset(temp[[i]], status == "ACCEPTED")
+      temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                            max(temp[[i]]$confidence))
+      if (nrow(temp[[i]]) > 1) {
+        temp[[i]] <- temp[[i]][1, ]
+        warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+      }
+    }
+    if (!any(temp[[i]]$status == "ACCEPTED") & any(temp[[i]]$status == 
+                                                   "SYNONYM")) {
+      if (resolve_synonyms) {
+        keep <- temp[i]
+        temp[i] <- taxize::get_gbifid_(temp[[i]]$species[which.max(temp[[i]]$confidence)], 
+                                       messages = verbose)
+        if (temp[[i]][1, ]$status == "ACCEPTED") {
+          temp[[i]] <- subset(temp[[i]], matchtype == 
+                                "EXACT" & status == "ACCEPTED")
+          temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                                max(temp[[i]]$confidence))
+          if (nrow(temp[[i]]) > 1) {
+            temp[[i]] <- temp[[i]][1, ]
+            warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+          }
+          warning_i <- paste(warning_i, "A synonym was mapped to the accepted species concept!", 
+                             sep = " ")
+          synonym_i = TRUE
+        }
+        else {
+          status <- temp[[i]][1, ]$status
+          temp[i] <- keep
+          if (nrow(temp[[i]]) > 1) {
+            temp[[i]] <- temp[[i]][1, ]
+            warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+          }
+          warning_i <- paste0(warning_i, " Resolved synonym '", 
+                              temp[[i]]$species, "' is labelled '", status, 
+                              "'. Clarification required!")
+        }
+      }
+      else {
+        temp[[i]] <- subset(temp[[i]], status == "SYNONYM")
+        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                              max(temp[[i]]$confidence))
+        warning_i <- paste(warning_i, "The provided taxon seems to be a synonym of '", 
+                           temp[[i]]$species, "'!", sep = "")
+      }
+    }
+    if (all(temp[[i]]$status == "DOUBTFUL")) {
+      temp[[i]] <- subset(temp[[i]], status == "DOUBTFUL")
+      warning_i <- paste(warning_i, "Mapped concept is labelled 'DOUBTFUL'!")
+      temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                            max(temp[[i]]$confidence))
+      if (nrow(temp[[i]]) > 1) {
+        temp[[i]] <- temp[[i]][1, ]
+        warning_i <- paste(warning_i, "Selected first of multiple equally ranked concepts!")
+      }
+    }
+    rankorder <- c("kingdom", "phylum", "class", "order", 
+                   "family", "genus", "species", "subspecies")
+    if (match(temp[[i]]$rank, rankorder) > 7 & !subspecies) {
+      if (length(strsplit(as.character(temp[[i]]$canonicalname), 
+                          " ")[[1]]) > 2) {
+        temp[i] <- taxize::get_gbifid_(paste(strsplit(names(temp[i]), 
+                                                      " ")[[1]][1:2], collapse = " "), messages = verbose)
+        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                              max(temp[[i]]$confidence))
+        warning_i <- paste(warning_i, "Subspecies has been remapped to species concept!", 
+                           sep = " ")
+      }
+      else {
+        temp[[i]] <- data.frame(scientificName = x[i], 
+                                matchtype = "NONE", rank = "subspecies")
+        warning_i <- paste(warning_i, "No mapping of subspecies name to species was possible!", 
+                           sep = " ")
+      }
+    }
+    if (temp[[i]]$matchtype == "HIGHERRANK") {
+      if (higherrank) {
+        temp[[i]] <- subset(temp[[i]], temp[[i]]$confidence == 
+                              max(temp[[i]]$confidence))
+        warning_i <- paste(warning_i, "No matching species concept! Entry has been mapped to higher taxonomic level.")
+      }
+      else {
+        temp[[i]] <- data.frame(scientificName = x[i], 
+                                matchtype = "NONE", rank = "highertaxon")
+        warning_i <- paste("No matching species concept!", 
+                           warning_i)
+      }
+    }
+    if (temp[[i]]$matchtype != "NONE") {
+      temp[[i]] <- data.frame(scientificName = x[i], synonym = synonym_i, 
+                              scientificNameStd = temp[[i]]$canonicalname, 
+                              matchtype = temp[[i]]$matchtype,
+                              author = sub(paste0(temp[[i]]$canonicalname, 
+                                                  " "), "", temp[[i]]$scientificname), taxonRank = temp[[i]]$rank, 
+                              confidence = temp[[i]]$confidence, kingdom = if (is.null(temp[[i]]$kingdom)) 
+                                NA
+                              else temp[[i]]$kingdom, phylum = if (is.null(temp[[i]]$phylum)) 
+                                NA
+                              else temp[[i]]$phylum, class = if (is.null(temp[[i]]$class)) 
+                                NA
+                              else temp[[i]]$class, order = if (is.null(temp[[i]]$order)) 
+                                NA
+                              else temp[[i]]$order, family = if (is.null(temp[[i]]$family)) 
+                                NA
+                              else temp[[i]]$family, genus = if (is.null(temp[[i]]$genus)) 
+                                NA
+                              else temp[[i]]$genus, taxonomy = "GBIF Backbone Taxonomy", 
+                              taxonID = paste0("http://www.gbif.org/species/", 
+                                               temp[[i]]$usagekey, ""), warnings = NA)
+    }
+    else {
+      temp[[i]] <- data.frame(scientificName = x[i], warnings = NA)
+    }
+    temp[[i]]$warnings <- warning_i
+    if (verbose & nchar(warning_i) >= 1) 
+      warning(warning_i)
+  }
+  out <- data.table::rbindlist(temp, fill = TRUE)
+  class(out) <- c("data.frame", "taxonomy")
+  return(out)
+}
+
+
+gbif.keep <- c(## TAXONOMY
+  "searchTaxon",
+  "species",
+  "scientificName",
+  "taxonRank",
+  "taxonKey",
+  "genus",
+  "family",
+  
+  ## CULTIVATION
+  "cloc",
+  "basisOfRecord",
+  "locality",
+  "establishmentMeans",
+  "institutionCode",
+  "datasetName",
+  "habitat",
+  "eventRemarks",
+  
+  ## RECORD ID
+  "recordedBy",
+  "identifiedBy",
+  "gbifID",
+  "catalogNumber",
+  
+  ## PLACE/TIME
+  "lat",
+  "lon",
+  "decimalLatitude",
+  "decimalLongitude",
+  "country",
+  "coordinateUncertaintyInMeters",
+  "geodeticDatum",
+  "year",
+  "month",
+  "day",
+  "eventDate",
+  "eventID")
+
+
 #####
 #####
 ####
