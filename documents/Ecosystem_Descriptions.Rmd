@@ -18,7 +18,7 @@ library(knitr)
 
 ```
 
-## Ecosystem `r cat(unitname, "\n")`
+## Ecosystem `r print(unitname, "\n")`
 
 ### Distribution
 
@@ -101,7 +101,7 @@ while(n < 10){
   n <- n + length(which(counts == unique(counts)[i]))
 }
 
-most_sampled_species <- data.frame(species = species_sorted[1:n], count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4))
+most_sampled_species <- data.frame(species = species_sorted[1:n], phylum = sppDat %>% filter(scientific %in% species_sorted[1:n]) %>% pull(phylum), restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
 kable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
 ```

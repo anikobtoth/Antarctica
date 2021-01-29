@@ -42,6 +42,8 @@ occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 library(raster)
 typ_fah <- raster("../Data/Typology/typV2_fa_hier_12v.tif")
 
+# GBIF occurrence data
+GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
 
 # Format data #####
 data <- merge(out %>% dplyr::select(ID, unit_h, x, y, Prop_in_IFA), smallPix)
@@ -60,6 +62,8 @@ occ <- SpatialPointsDataFrame(coords = occurrences[,c("decimalLongitude", "decim
 occ <- spTransform(occ, "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 occ$fah <- raster::extract(typ_fah, occ)
 
+sppDat <- occurrences %>% dplyr::select(Functional_group, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
+
 PA <- occ %>% data.frame() %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
 PArel <- apply(PA, 2, function(x) x/sum(x)) 
 
@@ -68,6 +72,9 @@ typ_df <- as.data.frame(typ) %>% filter(!typV2_fa_hier_12v %in% c(6, 11, 17, 23,
 
 rm(out, smallPix)
 detach("package:raster", unload = TRUE)
+
+sppLat <- GBIF_clean %>% group_by(species) %>% summarise(minLat = min(decimallatitude), maxLat = max(decimallatitude))
+restricted_spp <- sppLat$species[which(sppLat$maxLat < -50)]
 
 # Plots ####
 
@@ -87,22 +94,12 @@ apply(commonPA, 1, which.max)
 
 ## Endemicity
 spp_list <- rownames(PA)
-#skip <- download_GBIF_all_species(spp_list, path = "../Data/GBIF/")
-
-GBIF.ALL <- list.files("../Data/GBIF/", pattern = ".RData") %>%   
-  
-  ## Restrict them to just the strings that match the species list for each run
-  subset(. %in% paste(spp_list, "_GBIF_records.RData", sep = "")) %>%
-  
-  ## Pipe the list into lapply
-  lapply(load.GBIF, GBIF_path = "../Data/GBIF/") %>% bind_rows 
 
 
 for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:10]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
-  #ecodat <- data %>% dplyr::filter(unit_h == unitname)
   ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon", 'lat', 'coords.x1', 'coords.x2'))
   
   rmarkdown::render('./documents/Ecosystem_Descriptions.Rmd',  
