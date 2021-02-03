@@ -18,7 +18,7 @@ library(knitr)
 
 ```
 
-## Ecosystem `r print(unitname, "\n")`
+## Ecosystem `r cat(unitname, "\n")`
 
 ### Distribution
 
@@ -76,8 +76,26 @@ ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = va
 ```
 
 
-Distinctiveness from rest of antarctica.
 
+Distinctiveness of environmental group from rest of antarctica.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
+
+```
+
+Distinctiveness of unit `r cat(unitname, "\n")` from rest of environmental group
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
+  geom_boxplot() + facet_wrap(.~variable) 
+
+```
+
+
+
+Distinctiveness of unit `r cat(unitname, "\n")` from rest of antarctica.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable)
@@ -101,27 +119,43 @@ while(n < 10){
   n <- n + length(which(counts == unique(counts)[i]))
 }
 
-most_sampled_species <- data.frame(species = species_sorted[1:n], phylum = sppDat %>% filter(scientific %in% species_sorted[1:n]) %>% pull(phylum), restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
+most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
 kable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
 ```
 
 
 Any well-sampled species that occur MOST commonly in the unit
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+commons <- commonspp[which(commonspp == count)] %>% names()
 
-A list of singletons (only one sampled individual) that are found in the unit
+common_table <- sppDat[match(commons, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = commons %in% restricted_spp, relative_pct = dom_pct[commons]) %>% filter(relative_pct > 0)
+if(nrow(common_table)>0){kable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
+  }else cat("None \n")
 
-```{r}
+```
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
-sampled_species[sampled_species %in% singletons]
+singl <- sampled_species[sampled_species %in% singletons]
+singl_table <- sppDat[match(singl, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = singl %in% restricted_spp) 
+if(nrow(singl_table) > 0){
+  kable(singl_table, caption = paste0("A list of singletons (only one sampled individual) that are found in ", unitname))
+} else cat("None \n")
 
 ```
 
 A list of doubletons (two sampled individuals) found in the unit
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-sampled_species[sampled_species %in% doubletons]
+doubl <- sampled_species[sampled_species %in% doubletons]
+doubl_table <- sppDat[match(doubl, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = doubl %in% restricted_spp) 
+if(nrow(doubl_table) > 0){
+  kable(doubl_table, caption = paste0("A list of doubletons (two sampled individuals) that are found in ", unitname))
+} else cat("None \n")
 
 ```
 
@@ -129,7 +163,6 @@ Suitability for functional groups?
 
 ```{r echo=FALSE, fig.height=10, fig.width=5, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot() + theme(legend.position = "none", axis.text.x = element_text(angle = 90)) 
-
 ```
 
 Distinctiveness from rest of antarctica.
