@@ -82,11 +82,11 @@ GBIF.SPAT.ALL <- CLEAN.TRUE %>% as.data.frame() %>%
   
   dplyr::select(searchTaxon, species,decimallatitude, decimallongitude) %>% 
   
-  cc_outl(GBIF.SPAT.ALL, method  = "quantile",
-                         mltpl   = 5,
-                         tdi     = 500,
-                         value   = "clean",
-                         verbose = "TRUE")
+  cc_outl(method  = "quantile",
+          mltpl   = 5,
+          tdi     = 500,
+          value   = "clean",
+          verbose = "TRUE")
 
 saveRDS(GBIF.SPAT.ALL, file = "./data/Species/GBIF_clean_data.rds", compress = TRUE)
 
