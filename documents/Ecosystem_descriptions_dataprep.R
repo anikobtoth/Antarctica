@@ -62,10 +62,20 @@ occ <- SpatialPointsDataFrame(coords = occurrences[,c("decimalLongitude", "decim
 occ <- spTransform(occ, "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 occ$fah <- raster::extract(typ_fah, occ)
 
-sppDat <- occurrences %>% dplyr::select(Functional_group, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
+sppDat <- occurrences %>% dplyr::select(scientific, Functional_group, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
+# Manually remove errors 
+sppDat <- sppDat %>% filter(!(scientific == "Chamaesiphon subglobosus" & (!phylum == "Cyanobacteria" | !Functional_group == "Cyanobacteria_____")))
+sppDat <- sppDat %>% filter(!(scientific == "Aphanocapsa muscicola" & (!phylum == "Cyanobacteria" | !Functional_group == "Cyanobacteria_____")))
+sppDat <- sppDat %>% filter(!(scientific == "Catocarpus gerlachei" & (!class == "Lecanoromycetes" | !Functional_group == "Ascomycota_Lecanoromycetes_Incertae sedis_Rhizocarpaceae__")))
+sppDat <- sppDat %>% filter(!(scientific == "Barbilophozia cf. hatcheri" & !family == "Jungermanniaceae"))
+sppDat <- sppDat %>% filter(!(scientific == "Geomonhystera antarcticola" & !class == "Adenophorea"))
+sppDat <- sppDat %>% filter(!(scientific == "Halteria sp." & !order == "Oligotrichida"))
+sppDat <- sppDat %>% filter(!(scientific == "Lepadella patella" & !family == "Lepadellidae"))
 
 PA <- occ %>% data.frame() %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
 PArel <- apply(PA, 2, function(x) x/sum(x)) 
+commonspp <- PA[which(rowSums(PA) >10),] %>% apply(1, which.max)
+dom_pct <- 100*(PA[which(rowSums(PA) >10),] %>% apply(1, max)/PA[which(rowSums(PA) >10),] %>% rowSums())
 
 typ <- as(typ_fah, "SpatialPixelsDataFrame")
 typ_df <- as.data.frame(typ) %>% filter(!typV2_fa_hier_12v %in% c(6, 11, 17, 23, 29))
@@ -75,12 +85,13 @@ detach("package:raster", unload = TRUE)
 
 sppLat <- GBIF_clean %>% group_by(species) %>% summarise(minLat = min(decimallatitude), maxLat = max(decimallatitude))
 restricted_spp <- sppLat$species[which(sppLat$maxLat < -50)]
+restricted_spp <- c(restricted_spp, sppDat$scientific[which(!sppDat$scientific %in% GBIF_clean$species)]) #include species with no GBIF records
 
 # Plots ####
 
 ecosummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(abiotic) , ~ mean(.x, na.rm = TRUE)))
 sdmsummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(good_models), ~ mean(.x, na.rm = TRUE)))
-count <- 0
+
 
 singletons <- rownames(PA)[which(rowSums(PA) == 1)]
 doubletons <- rownames(PA)[which(rowSums(PA) == 2)]
@@ -95,7 +106,7 @@ apply(commonPA, 1, which.max)
 ## Endemicity
 spp_list <- rownames(PA)
 
-
+count <- 0
 for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:10]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
