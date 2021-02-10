@@ -12,13 +12,14 @@ library(sp)
 library(cowplot)
 library(raster)
 library(knitr)
+library(DT)
 
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
 
 ```
 
-## Ecosystem `r cat(unitname, "\n")`
+## Ecosystem `r unitname`
 
 ### Distribution
 
@@ -66,9 +67,23 @@ Smaller maps
 
 ### Environment
 
-General description??
+The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "_")`.
 
-Most extreme variables. 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+ unit_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% summarise(relative = t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[1] - t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[2], p = t.test(value[unit_h == unitname], value[unit_h != unitname])$p.value) %>% arrange(desc(relative))
+
+ envgr_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% summarise(relative = t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$estimate[1] - t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$estimate[2], p = t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$p.value) %>% arrange(desc(relative))
+ 
+  unit_envgr <- ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(variable) %>% summarise(relative = t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[1] - t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[2], p = t.test(value[unit_h == unitname], value[unit_h != unitname])$p.value) %>% arrange(desc(relative))
+
+  
+```
+This supergroup has, on average, substantially higher `r envgr_cont[envgr_cont$relative > 0.05, "variable"] %>% unlist() %>% as.character()` than continental antarctica. It also has substantially lower `r envgr_cont[envgr_cont$relative < -0.05, "variable"] %>% unlist() %>% as.character()` than the rest of the continent.
+
+Unit `r unitname` has higher `r unit_envgr[unit_envgr$relative > 0.04, "variable"] %>% unlist() %>% as.character()` and lower `r unit_envgr[unit_envgr$relative < -0.04, "variable"] %>% unlist() %>% as.character()` than the rest of its environmental supergroup.
+
+
+Range of environmental variables present in the unit:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot()
@@ -77,29 +92,31 @@ ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = va
 
 
 
-Distinctiveness of environmental group from rest of antarctica.
+Distinctiveness of environmental group from rest of Antarctica.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
   geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
 
+DT::datatable(envgr_cont)
 ```
 
-Distinctiveness of unit `r cat(unitname, "\n")` from rest of environmental group
+Distinctiveness of unit `r unitname` from rest of environmental group
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable) 
 
+DT::datatable(unit_envgr)
 ```
 
 
 
-Distinctiveness of unit `r cat(unitname, "\n")` from rest of antarctica.
+Distinctiveness of unit `r unitname` from rest of antarctica.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable)
-
+DT::datatable(unit_cont)
 ```
 
 
@@ -119,9 +136,9 @@ while(n < 10){
   n <- n + length(which(counts == unique(counts)[i]))
 }
 
-most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
+most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
-kable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
+DT::datatable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
 ```
 
 
@@ -129,8 +146,8 @@ Any well-sampled species that occur MOST commonly in the unit
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 commons <- commonspp[which(commonspp == count)] %>% names()
 
-common_table <- sppDat[match(commons, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = commons %in% restricted_spp, relative_pct = dom_pct[commons]) %>% filter(relative_pct > 0)
-if(nrow(common_table)>0){kable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
+common_table <- sppDat[match(commons, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = commons %in% restricted_spp, relative_pct = dom_pct[commons]) %>% filter(relative_pct > 0) %>% tibble()
+if(nrow(common_table)>0){DT::datatable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
   }else cat("None \n")
 
 ```
@@ -140,9 +157,9 @@ if(nrow(common_table)>0){kable(common_table, caption = paste0("A list of common 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
 singl <- sampled_species[sampled_species %in% singletons]
-singl_table <- sppDat[match(singl, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = singl %in% restricted_spp) 
+singl_table <- sppDat[match(singl, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = singl %in% restricted_spp) 
 if(nrow(singl_table) > 0){
-  kable(singl_table, caption = paste0("A list of singletons (only one sampled individual) that are found in ", unitname))
+  DT::datatable(singl_table, caption = paste0("A list of singletons (only one sampled individual) that are found in ", unitname))
 } else cat("None \n")
 
 ```
@@ -152,9 +169,9 @@ A list of doubletons (two sampled individuals) found in the unit
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 doubl <- sampled_species[sampled_species %in% doubletons]
-doubl_table <- sppDat[match(doubl, sppDat$scientific),] %>% select(scientific, Functional_group, vernacularName, phylum) %>% data.frame(restricted = doubl %in% restricted_spp) 
+doubl_table <- sppDat[match(doubl, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = doubl %in% restricted_spp) 
 if(nrow(doubl_table) > 0){
-  kable(doubl_table, caption = paste0("A list of doubletons (two sampled individuals) that are found in ", unitname))
+  DT::datatable(doubl_table, caption = paste0("A list of doubletons (two sampled individuals) that are found in ", unitname))
 } else cat("None \n")
 
 ```
