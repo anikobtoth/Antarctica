@@ -1,0 +1,15 @@
+Env1_sdm1 Warmest, lowest elev group but possibly higher moisture (cloud and precip) than the rest of the group. Dominant biota appears to be mainly lichen and some mosses.
+
+Env1_sdm2 Warm, low elevation. Higher wind than rest of subgroup, lower temp/cloud and more arid (less melt). Dominant biota are mosses.
+
+Env1_sdm3 Warm, low elevation. Unit is apparently warmer and wetter than the rest of the group. Dominant biota are Antarctic specialising vascular plants, pearlwort and hairgrass. 
+
+Env1_sdm4 Warm, low elevation. Unit is colder than the rest of the subgroup, but still warmer than the continental average. May have slightly rougher terrain than the subgroup. Dominant biota appears to be lichens, though suitability is higher than usual for Nematodes, Rotifers, and Trombidiformes (mites). Suitability for most mosses low (though still higher than continental average). 
+
+Env1_sdm5 Warm, low elevation. Higher elevation and wind than the rest of the subgroup, but still lower than continental average. More cold and arid than rest of the subgroup. Most dominant fauna appears to be arthropods (mites and springtails), with some Adelie penguin and petrel samples as well. 
+
+Env2_sdm1 Cloudiest group (high cloud and precip), still warmer than continent average but not as warm as first group. This unit is warmest and wettest within the subgroup but may also be more rugged despite lowish elevations. Sampled biota suspiciously similar to Env1_sdm1, but also has unusually high suitability for penguins, Hypnales and Polytrichales mosses and Bacidiaceae and Cladoniaceae Lichens.
+
+Env2_sdm2 Cloudy group; higher elevation but not rugged, colder and drier than rest of the subgroup (melt, precip, and temp variables low). In some cases, temp and moisture variables drop below continental average. Sampled biota appear to be mainly mosses, but suitability is lower than continental average for most functional groups, particularly Ochrophytes, Nematodes, and penguins. 
+
+Env2_sdm3 Cloudy group; wetter, warmer, and lower elev than rest of its group, though may be somewhat rugged. Main sampled biota is various mosses accompanied by the two vascular plant species. Suitability is higher than average for a variety of functional groups includng penguins, but is especially low for Ochrophytes an Rotifers. 
