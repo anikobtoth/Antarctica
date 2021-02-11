@@ -109,7 +109,7 @@ spp_list <- rownames(PA)
 ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon", 'lat', 'coords.x1', 'coords.x2'))
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:5]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[6:15]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))

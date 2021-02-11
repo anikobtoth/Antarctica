@@ -96,6 +96,21 @@ cont_table <- function(x){
   return(t)
 }
 
+
+## process tables into text format
+df2txt <- function(df, threshold = 0.5){
+  if(threshold > 0) vars <- df[df$mean_diff > threshold, "variable"] %>% unlist() %>% as.character() 
+  if(threshold < 0) vars <- df[df$mean_diff < threshold, "variable"] %>% unlist() %>% as.character() 
+  
+  #clean var names
+  vars <- vars %>% str_replace_all("_", " ") %>% trimws() %>% str_replace_all(" ", "_")
+  
+  if(length(vars == 1)) return(vars)
+  if(length(vars == 0 )) return ("no variables")
+  if(length(vars == 2)) return(paste(vars[1:length(vars)-1], "and", vars[length(vars)]))
+  if(length(vars > 2)) return(paste(vars[1:(length(vars)-1)], collapse = ", ") %>% paste("and", vars[length(vars)]))
+}
+
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
 factor_analysis <- function(dat, mincomp = 0.35){

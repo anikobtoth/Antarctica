@@ -70,17 +70,25 @@ Smaller maps
 The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "_")`.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
- unit_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% summarise(relative = t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[1] - t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[2], p = t.test(value[unit_h == unitname], value[unit_h != unitname])$p.value) %>% arrange(desc(relative))
+ unit_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% 
+  summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
+            medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
 
- envgr_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% summarise(relative = t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$estimate[1] - t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$estimate[2], p = t.test(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)])$p.value) %>% arrange(desc(relative))
+ envgr_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% 
+   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
+               mean(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T), 
+             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
+               median(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
  
-  unit_envgr <- ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(variable) %>% summarise(relative = t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[1] - t.test(value[unit_h == unitname], value[unit_h != unitname])$estimate[2], p = t.test(value[unit_h == unitname], value[unit_h != unitname])$p.value) %>% arrange(desc(relative))
+  unit_envgr <- ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(variable) %>% 
+    summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
+              medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
 
   
 ```
-This supergroup has, on average, substantially higher `r envgr_cont[envgr_cont$relative > 0.05, "variable"] %>% unlist() %>% as.character()` than continental antarctica. It also has substantially lower `r envgr_cont[envgr_cont$relative < -0.05, "variable"] %>% unlist() %>% as.character()` than the rest of the continent.
+This supergroup is, on average, substantially higher in `r df2txt(envgr_cont, 0.05)` than continental antarctica. It is substantially lower in `r df2txt(envgr_cont, -0.05)` than the rest of the continent.
 
-Unit `r unitname` has higher `r unit_envgr[unit_envgr$relative > 0.04, "variable"] %>% unlist() %>% as.character()` and lower `r unit_envgr[unit_envgr$relative < -0.04, "variable"] %>% unlist() %>% as.character()` than the rest of its environmental supergroup.
+Unit `r unitname` is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
 
 
 Range of environmental variables present in the unit:
@@ -90,6 +98,12 @@ ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = va
 
 ```
 
+The table below shows the difference in the mean values of all environmental variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont, by = "variable") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("variable", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+
+```
 
 
 Distinctiveness of environmental group from rest of Antarctica.
@@ -98,7 +112,7 @@ Distinctiveness of environmental group from rest of Antarctica.
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
   geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
 
-DT::datatable(envgr_cont)
+
 ```
 
 Distinctiveness of unit `r unitname` from rest of environmental group
@@ -107,7 +121,7 @@ Distinctiveness of unit `r unitname` from rest of environmental group
 ggplot(ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable) 
 
-DT::datatable(unit_envgr)
+
 ```
 
 
@@ -116,7 +130,7 @@ Distinctiveness of unit `r unitname` from rest of antarctica.
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable)
-DT::datatable(unit_cont)
+
 ```
 
 
@@ -152,7 +166,7 @@ if(nrow(common_table)>0){DT::datatable(common_table, caption = paste0("A list of
 
 ```
 
-
+<!--
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
@@ -164,7 +178,7 @@ if(nrow(singl_table) > 0){
 
 ```
 
-A list of doubletons (two sampled individuals) found in the unit
+A list of doubletons (two sampled individuals) found in the unit 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
@@ -176,11 +190,67 @@ if(nrow(doubl_table) > 0){
 
 ```
 
-Suitability for functional groups?
+-->
 
-```{r echo=FALSE, fig.height=10, fig.width=5, message=FALSE, warning=FALSE}
-ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot() + theme(legend.position = "none", axis.text.x = element_text(angle = 90)) 
+```{r message=FALSE, warning=FALSE, include=FALSE}
+  unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(variable) %>% 
+  summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
+            medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
+
+ envgr_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(variable) %>% 
+   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
+               mean(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T), 
+             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
+               median(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
+ 
+  unit_envgr <- ecodat %>% filter(variable %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(variable) %>% 
+    summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
+              medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
+
+
+```  
+
+This supergroup is, on average, substantially higher in suitability for 
+`r df2txt(envgr_cont, 0.5)` 
+functional groups than continental antarctica. It is substantially lower in suitability for
+`r df2txt(envgr_cont, -0.5)` 
+than the rest of the continent.
+
+Unit `r unitname` is higher in suitability for `r df2txt(unit_envgr, 0.3)` 
+and lower in suitability for `r df2txt(unit_envgr, -0.3)` than the rest of its environmental supergroup.
+
+Suitability for functional groups in `r unitname`.
+
+```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot() + theme(legend.position = "none") + coord_flip()
 ```
+
+The table below shows the difference in the mean values of all suitability variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont, by = "variable") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("variable", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+
+```
+
+
+Distinctiveness of environmental group biota from rest of Antarctica.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
+
+DT::datatable(envgr_cont)
+```
+
+Distinctiveness of unit `r unitname` from rest of environmental group
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(ecodat %>% filter(variable %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
+  geom_boxplot() + facet_wrap(.~variable) 
+
+DT::datatable(unit_envgr)
+```
+
 
 Distinctiveness from rest of antarctica.
 
@@ -188,6 +258,7 @@ Distinctiveness from rest of antarctica.
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable)
 
+DT::datatable(unit_cont)
 ```
 
 
