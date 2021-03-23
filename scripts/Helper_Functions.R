@@ -98,17 +98,17 @@ cont_table <- function(x){
 
 
 ## process tables into text format
-df2txt <- function(df, threshold = 0.5){
-  if(threshold > 0) vars <- df[df$mean_diff > threshold, "variable"] %>% unlist() %>% as.character() 
-  if(threshold < 0) vars <- df[df$mean_diff < threshold, "variable"] %>% unlist() %>% as.character() 
+df2txt <- function(df, threshold = 0.5, name = "variable"){
+  if(threshold > 0) vars <- df[df$mean_diff > threshold, name] %>% unlist() %>% as.character() 
+  if(threshold < 0) vars <- df[df$mean_diff < threshold, name] %>% unlist() %>% as.character() 
   
   #clean var names
   vars <- vars %>% str_replace_all("_", " ") %>% trimws() %>% str_replace_all(" ", "_")
   
-  if(length(vars == 1)) return(vars)
-  if(length(vars == 0 )) return ("no variables")
-  if(length(vars == 2)) return(paste(vars[1:length(vars)-1], "and", vars[length(vars)]))
-  if(length(vars > 2)) return(paste(vars[1:(length(vars)-1)], collapse = ", ") %>% paste("and", vars[length(vars)]))
+  if(length(vars) == 1) return(vars)
+  if(length(vars) == 0 ) return ("no variables")
+  if(length(vars) == 2) return(paste(vars[1:length(vars)-1], "and", vars[length(vars)]))
+  if(length(vars) > 2) return(paste(vars[1:(length(vars)-1)], collapse = ", ") %>% paste("and", vars[length(vars)]))
 }
 
 ##### ANALYSES ######
@@ -355,6 +355,51 @@ plotnet <- function(g, mod, title){
 gg_color_hue <- function(n) {
   hues = seq(15, 375, length = n + 1)
   hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+map_mosaic <- function(df.grids){
+  
+  width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
+  height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
+  aspect <- width/height
+  
+  l <- length(height)
+  o <- order(height)
+  aspect <- aspect[o]
+  height <- height[o]
+  width  <-  width[o]
+ 
+  nrows <<- (sum(aspect)/2.6) %>% round() 
+  if(nrows == 0) nrows <<- 1
+  if(nrows > 1) {
+    newlines <- combn(x = 1:(l-1), m = nrows-1)
+  
+  f <- list()
+  aspdiff <- numeric()
+  widdiff <- numeric()
+  for(i in 1:ncol(newlines)) {
+    f[[i]] <- rep(letters[1:length(newlines[,i])], c(newlines[1,i], diff(newlines[,i])))
+    f[[i]] <- c(f[[i]], rep("z", length(aspect)- length(f[[i]]))) %>% as.factor()
+    aspdiff[i] <- split(aspect, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
+    widdiff[i] <- split(width, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
+  }
+  fac <- f[[#((widdiff %>% abs() %>% scale()) + 
+              (aspdiff %>% abs() %>% scale())#) 
+              %>% which.min()]]
+  #fac <- f[[(aspdiff %>% scale() %>% abs()) %>% which.min()]]
+  
+ # cmd <- map2(split(paste0("plot", o), fac) %>% lapply(paste, collapse = ","), 
+ #     split(width, fac) %>% lapply(paste, collapse = ","), 
+ #     function(x, y) paste0("plot_grid(", x, ", rel_widths = c(", y, "), nrow = 1)")) %>% 
+ #  paste(collapse = ", ")
+  cmd <- split(paste0("plot", o), fac) %>% lapply(paste, collapse = "+") %>% paste(" + plot_annotation(theme = theme(plot.margin = unit(c(0, 0, 0, 0), 'cm'))) + plot_layout(nrow = 1)", collapse = ") / (")
+  }else{
+      #cmd <- paste0(paste0("plot", o, collapse = ",") %>% paste0(", rel_widths = c(", paste0(width, collapse = ","), ")"))
+       cmd <- paste0(paste0("plot", o, collapse = "+"))
+    }
+  #plotcmd <- paste0("plot_grid(", cmd, ", nrow = ", nrows, ")")
+  plotcmd <- paste0("(", cmd, ")")
+  return(plotcmd)
 }
 
 #### Mapping ######

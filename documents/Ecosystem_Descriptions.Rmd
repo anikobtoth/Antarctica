@@ -13,6 +13,7 @@ library(cowplot)
 library(raster)
 library(knitr)
 library(DT)
+library(patchwork)
 
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
@@ -21,9 +22,9 @@ library(DT)
 
 ## Ecosystem `r unitname`
 
-### Distribution
+`r descr[count]`
 
-Verbal Description??
+### Distribution
 
 Maps - Full map
 
@@ -34,34 +35,46 @@ Maps - Full map
                  fill="gray50", color= NA, size=0.25) +
     geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.5) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
-    coord_equal()
+    coord_equal() + labs(x = "x", y = "y")
 ```
 
 Smaller maps
 
-```{r echo=FALSE, fig.width=8, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
   # smaller maps
   unit$cluster <- dist(unit[,c("x", "y")], method = 'euclidean') %>% hclust(method = 'average') %>% cutree(k = 6)
   units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 100)) %>% split(.$cluster)
   df.grids <- units %>% lapply(geo_bounds, buff = 0.15)
-  aspect <- units %>% sapply(aspect_ratio)
+  #aspect <- units %>% sapply(aspect_ratio)
+  #width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
+  #height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
   ant_crops <- df.grids %>% lapply(function(x) crop(antarctica, extent(x)))
   
   subplots <- map2(ant_crops, units, function(x,y){
     p <- ggplot() +  
       geom_polygon(data = x, aes(x=long, y=lat, group=group), fill="gray50", color= NA, size=0.25) +
       geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
-      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
-      coord_equal() + theme(legend.position = "none", plot.margin = unit(c(0,0,0,0), "cm")) +
-      scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific)
+      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() +
+      theme(legend.position = "none", 
+            plot.margin = unit(c(0,0,0,0), "cm"), 
+            axis.text = element_text(size = 6), 
+            axis.title = element_blank()) +
+      scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific) 
     return(p)
   })
   
   subplots <- subplots %>% setNames(paste0("plot", 1:length(subplots)))
   attach(subplots)
-  plotcmd <- paste0("plot_grid(", paste0("plot", 1:length(subplots), collapse = ","),", rel_widths = aspect)")
-  eval(parse(text = plotcmd))
+  
+  #plotcmd <- paste0("plot_grid(", paste0("plot", order(aspect), collapse = ","),", rel_widths = width)")
+  plotcmd <- map_mosaic(df.grids)
+ 
 
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*3}
+ eval(parse(text = plotcmd))
 ```
 
 
@@ -86,6 +99,7 @@ The unit `r unitname` is part of the environmental supergroup `r word(unitname, 
 
   
 ```
+
 This supergroup is, on average, substantially higher in `r df2txt(envgr_cont, 0.05)` than continental antarctica. It is substantially lower in `r df2txt(envgr_cont, -0.05)` than the rest of the continent.
 
 Unit `r unitname` is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
@@ -106,7 +120,18 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont
 ```
 
 
-Distinctiveness of environmental group from rest of Antarctica.
+Distinctiveness of the unit from its group and the rest of Antarctica
+```{r}
+ecodat$f <- "continent"
+ecodat$f[grepl(pattern = word(unitname, 1,1, "_"), ecodat$unit_h)] <- "group"
+ecodat$f[ecodat$unit_h == unitname] <- "unit"
+
+ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = f, fill = f)) + 
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
+
+```
+
+<!-- Distinctiveness of environmental group from rest of Antarctica.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
@@ -117,13 +142,12 @@ ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = grepl(patter
 
 Distinctiveness of unit `r unitname` from rest of environmental group
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE, error = T}
 ggplot(ecodat %>% filter(variable %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
   geom_boxplot() + facet_wrap(.~variable) 
 
 
 ```
-
 
 
 Distinctiveness of unit `r unitname` from rest of antarctica.
@@ -133,8 +157,7 @@ ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == un
 
 ```
 
-
-
+-->
 
 ### Biota
 
@@ -143,11 +166,11 @@ Top 10 most commonly sampled species in the unit
 species_sorted <- rownames(PA)[PA %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA %>% pull(count) %>% sort(decreasing = TRUE)
 
-i <- 0
+j <- 0
 n <- 0
 while(n < 10){
-  i <- i + 1
-  n <- n + length(which(counts == unique(counts)[i]))
+  j <- j + 1
+  n <- n + length(which(counts == unique(counts)[j]))
 }
 
 most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
@@ -155,16 +178,54 @@ most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %
 DT::datatable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
 ```
 
+Locations of the top 3 most commonly sampled species in the unit.
 
-Any well-sampled species that occur MOST commonly in the unit
+```{r echo = FALSE, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+  
+mss <- occ %>% data.frame() %>% dplyr::filter(fah == i & scientific %in% most_sampled_species$scientific[1:3])
+
+ggplot() +  
+    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
+                 fill="gray50", color= NA, size=0.25) +
+    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1) +
+    scale_fill_manual(values = c("#E0002D")) + 
+    coord_equal() + labs(x = "x", y = "y") + 
+  geom_point(data = mss, aes(x = decimalLongitude.1, y = decimalLatitude.1, col = scientific), shape = 3, size = 6, stroke = 1) + scale_color_manual(values = c("#E0002D", "black", "blue", "yellow")) 
+ 
+
+```
+
+
+Any well-sampled species that occur MOST commonly in the unit (these may have potential use as diagnostic species).
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 commons <- commonspp[which(commonspp == count)] %>% names()
 
 common_table <- sppDat[match(commons, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = commons %in% restricted_spp, relative_pct = dom_pct[commons]) %>% filter(relative_pct > 0) %>% tibble()
+common_table <- common_table %>% arrange(desc(relative_pct))
 if(nrow(common_table)>0){DT::datatable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
   }else cat("None \n")
 
 ```
+
+Sampling locations of the species with the highest relative percent of occurrences found in this unit.
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+mcs <- occ %>% data.frame() %>% dplyr::filter(fah == i & scientific %in% common_table$scientific[1:3])
+
+if(nrow(mcs) > 0){
+  ggplot() +  
+    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
+                 fill="gray50", color= NA, size=0.25) +
+    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1) +
+    scale_fill_manual(values = c("#E0002D")) + 
+    coord_equal() + labs(x = "x", y = "y") + 
+  geom_point(data = mcs, aes(x = decimalLongitude.1, y = decimalLatitude.1, col = scientific), shape = 3, size = 6, stroke = 1) + scale_color_manual(values = c("#E0002D", "black", "blue", "yellow")) 
+}
+
+ 
+
+```
+
 
 <!--
 
@@ -193,17 +254,19 @@ if(nrow(doubl_table) > 0){
 -->
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-  unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(variable) %>% 
+ecodat <- ecodat %>% left_join(bio_key)
+
+  unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(taxon) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
             medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
 
- envgr_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(variable) %>% 
+ envgr_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(taxon) %>% 
    summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
                mean(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T), 
              medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
                median(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
  
-  unit_envgr <- ecodat %>% filter(variable %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(variable) %>% 
+  unit_envgr <- ecodat %>% filter(variable %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(taxon) %>% 
     summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
               medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
 
@@ -211,44 +274,53 @@ if(nrow(doubl_table) > 0){
 ```  
 
 This supergroup is, on average, substantially higher in suitability for 
-`r df2txt(envgr_cont, 0.5)` 
+`r df2txt(envgr_cont, 0.5, "taxon")` 
 functional groups than continental antarctica. It is substantially lower in suitability for
-`r df2txt(envgr_cont, -0.5)` 
+`r df2txt(envgr_cont, -0.5, "taxon")` 
 than the rest of the continent.
 
-Unit `r unitname` is higher in suitability for `r df2txt(unit_envgr, 0.3)` 
-and lower in suitability for `r df2txt(unit_envgr, -0.3)` than the rest of its environmental supergroup.
+Unit `r unitname` is higher in suitability for `r df2txt(unit_envgr, 0.3, "taxon")` 
+and lower in suitability for `r df2txt(unit_envgr, -0.3, "taxon")` than the rest of its environmental supergroup.
 
 Suitability for functional groups in `r unitname`.
 
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
-ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = variable, fill = variable, y = value)) + geom_boxplot() + theme(legend.position = "none") + coord_flip()
+
+ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x = taxon, fill = taxon, y = value)) + geom_boxplot() + theme(legend.position = "none") + coord_flip()
 ```
 
 The table below shows the difference in the mean values of all suitability variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont, by = "variable") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("variable", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, by = "taxon") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("taxon", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
 
 ```
 
 
+Distinctiveness of the unit from the environmental group and the rest of Antarctica 
+ 
+```{r fig.height=12, fig.width=9}
+ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = f, fill = f)) + 
+  geom_boxplot() + facet_wrap(.~taxon) + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
+
+```
+
+
+<!--
 Distinctiveness of environmental group biota from rest of Antarctica.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = grepl(pattern = word(unitname, 1,1, "_"), unit_h), fill = grepl(pattern = word(unitname, 1,1, "_"), unit_h))) + 
-  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Abiotic group", fill = "Abiotic group")
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Biotic group", fill = "Biotic group")
 
-DT::datatable(envgr_cont)
 ```
 
 Distinctiveness of unit `r unitname` from rest of environmental group
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)), aes(y = value, x = unit_h == unitname, fill = unit_h == unitname)) + 
-  geom_boxplot() + facet_wrap(.~variable) 
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Biotic group", fill = "Biotic group")
 
-DT::datatable(unit_envgr)
 ```
 
 
@@ -256,12 +328,11 @@ Distinctiveness from rest of antarctica.
 
 ```{r echo=FALSE, fig.height=8, fig.width=10, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = unit_h == unitname, fill =  unit_h == unitname)) + 
-  geom_boxplot() + facet_wrap(.~variable)
+  geom_boxplot() + facet_wrap(.~variable) + labs(x = "Biotic group", fill = "Biotic group")
 
-DT::datatable(unit_cont)
 ```
 
-
+-->
 
 ### Literature 
 

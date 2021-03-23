@@ -10,7 +10,7 @@ source('./scripts/Helper_Functions.R')
 # Load data ####
 out <- readRDS("./results/out_TYP_fa_hier_dual_reverse_units.rds")
 
-n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
+biotic <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
 
 abiotic <- c("cloud", "sumtemp", "wind", "temp", "melt", 
              "modT_0315", "elev", "rad", "rugos", "slope", "DDminus5", "precip") ## excl. "coast", "geoT"
@@ -25,7 +25,7 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
 
-good_models <- n[!n%in% bad_models] 
+good_models <- biotic[!biotic%in% bad_models] 
 
 # SDM and environmental data
 load("./data/DB_smallPix_all.RData")
@@ -44,6 +44,10 @@ typ_fah <- raster("../Data/Typology/typV2_fa_hier_12v.tif")
 
 # GBIF occurrence data
 GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
+
+# verbal descriptions
+descr <- read_file("./documents/Unit_descriptions.txt")
+descr <- descr %>% strsplit("\r\n\r\n") %>% unlist()
 
 # Format data #####
 data <- merge(out %>% dplyr::select(ID, unit_h, x, y, Prop_in_IFA), smallPix)
@@ -107,9 +111,26 @@ apply(commonPA, 1, which.max)
 spp_list <- rownames(PA)
 
 ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon", 'lat', 'coords.x1', 'coords.x2'))
+bio_key <- data.frame(variable = biotic, taxon = c("Mesostigmatid mites", "Sarcoptiformes Acari",
+                                                               "Trombidiform mites", "Slim Springtails",
+                                                               "Round springtails", "Acarosporacid lichens",
+                                                               "Candelarid lichens", "Bacidiacid lichens",
+                                                               "Cladonid lichens", "Lecanorid lichens",
+                                                               "Lecideacid lichens", "Parmelid lichens",
+                                                               "Stereocaulid lichens", "Rhizocarpid lichens",
+                                                               "Physcid (shadow) lichens", "Teloschistid lichens",
+                                                               "Umbilicarid lichens", "Bryales mosses",
+                                                               "Dicranales mosses", "Grimmiales mosses",
+                                                               "Hypnales (feather) mosses", "Polytrichales mosses",
+                                                               "Pottiales mosses", "Green algae",
+                                                               "Petrels", "Adelie penguins", 
+                                                               "Chinstrap penguins", "Gentoo penguins",
+                                                               "Cyanobacteria", "Liverworts",
+                                                               "Nematodes", "Algae", "Rotifers","Tardigrades"
+                                                               ))
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[6:15]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:2]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
@@ -123,3 +144,10 @@ for(i in sort(unique(typ_df$typV2_fa_hier_12v))[6:15]) {
 
 
 
+##### Supergroup descriptions 
+x <- data %>% select(unit_h, all_of(abiotic)) %>% na.omit() 
+x %>% select(-unit_h) %>% princomp() %>% autoplot(x, col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
+
+y <- x %>% select(-unit_h) %>% princomp() 
+plot3d(y$scores[,1:3], col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
+plotly::plot_ly(x = y$scores[,1], y = y$scores[,2], z = y$scores[,3], color = word(x$unit_h, 1, 1, sep = "_") %>% as.factor(), size = 0.4)
