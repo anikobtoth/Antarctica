@@ -121,7 +121,7 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont
 
 
 Distinctiveness of the unit from its group and the rest of Antarctica
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 ecodat$f <- "continent"
 ecodat$f[grepl(pattern = word(unitname, 1,1, "_"), ecodat$unit_h)] <- "group"
 ecodat$f[ecodat$unit_h == unitname] <- "unit"
@@ -161,7 +161,7 @@ ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == un
 
 ### Biota
 
-Top 10 most commonly sampled species in the unit
+Top 10 most abundant species in the unit
 ```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
 species_sorted <- rownames(PA)[PA %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA %>% pull(count) %>% sort(decreasing = TRUE)
@@ -175,14 +175,14 @@ while(n < 10){
 
 most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
-DT::datatable(most_sampled_species, caption = paste0("The top most sampled species in ecosystem ", unitname))
+DT::datatable(most_sampled_species, caption = paste0("The top most abundant species in ecosystem ", unitname))
 ```
 
-Locations of the top 3 most commonly sampled species in the unit.
+Locations of the top 3 most abundant species in the unit.
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
   
-mss <- occ %>% data.frame() %>% dplyr::filter(fah == i & scientific %in% most_sampled_species$scientific[1:3])
+mas <- occ %>% data.frame() %>% dplyr::filter(fah == i & scientific %in% most_sampled_species$scientific[1:3])
 
 ggplot() +  
     geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
@@ -190,7 +190,42 @@ ggplot() +
     geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1) +
     scale_fill_manual(values = c("#E0002D")) + 
     coord_equal() + labs(x = "x", y = "y") + 
-  geom_point(data = mss, aes(x = decimalLongitude.1, y = decimalLatitude.1, col = scientific), shape = 3, size = 6, stroke = 1) + scale_color_manual(values = c("#E0002D", "black", "blue", "yellow")) 
+  geom_point(data = mas, aes(x = decimalLongitude.1, y = decimalLatitude.1, col = scientific), shape = 3, size = 6, stroke = 1) + scale_color_manual(values = c("#E0002D", "black", "blue", "yellow")) 
+ 
+
+```
+
+
+Top 10 most widespread species in the unit (found in most pixels)
+```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
+species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
+counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
+
+j <- 0
+n <- 0
+while(n < 10){
+  j <- j + 1
+  n <- n + length(which(counts == unique(counts)[j]))
+}
+
+most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
+
+DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
+```
+
+Locations of the top 3 most widespread species in the unit.
+
+```{r echo = FALSE, message = FALSE, warning = FALSE, fig.width = 12, fig.height = 12}
+  
+mws <- occ %>% data.frame() %>% dplyr::filter(fah == i & scientific %in% most_widespread_species$scientific[1:3])
+
+ggplot() +  
+    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
+                 fill="gray50", color= NA, size=0.25) +
+    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1) +
+    scale_fill_manual(values = c("#E0002D")) + 
+    coord_equal() + labs(x = "x", y = "y") + 
+  geom_point(data = mws, aes(x = decimalLongitude.1, y = decimalLatitude.1, col = scientific), shape = 3, size = 6, stroke = 1) + scale_color_manual(values = c("#E0002D", "black", "blue", "yellow")) 
  
 
 ```
@@ -292,14 +327,14 @@ ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x 
 The table below shows the difference in the mean values of all suitability variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, by = "taxon") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("taxon", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, by = "taxon") %>% dplyr::select(taxon, grep("mean", names(.))) %>% setNames(c("taxon", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
 
 ```
 
 
 Distinctiveness of the unit from the environmental group and the rest of Antarctica 
  
-```{r fig.height=12, fig.width=9}
+```{r fig.height=12, fig.width=9, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = f, fill = f)) + 
   geom_boxplot() + facet_wrap(.~taxon) + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
 

@@ -3,6 +3,9 @@ library(reshape2)
 library(rgdal)
 library(sp)
 library(cowplot)
+library(rts)
+library(ggfortify)
+library(rgl)
 
 # Helper functions ####
 source('./scripts/Helper_Functions.R')
@@ -77,6 +80,13 @@ sppDat <- sppDat %>% filter(!(scientific == "Halteria sp." & !order == "Oligotri
 sppDat <- sppDat %>% filter(!(scientific == "Lepadella patella" & !family == "Lepadellidae"))
 
 PA <- occ %>% data.frame() %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+
+# weed out so only one occurrence per species per cell
+typology <- raster("../Data/Typology/typV2_fa_hier_12V.tif")
+PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typology, occ)) %>% 
+  dplyr::select(scientific, cell, fah) %>% distinct() %>%
+  reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+
 PArel <- apply(PA, 2, function(x) x/sum(x)) 
 commonspp <- PA[which(rowSums(PA) >10),] %>% apply(1, which.max)
 dom_pct <- 100*(PA[which(rowSums(PA) >10),] %>% apply(1, max)/PA[which(rowSums(PA) >10),] %>% rowSums())
@@ -111,26 +121,26 @@ apply(commonPA, 1, which.max)
 spp_list <- rownames(PA)
 
 ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon", 'lat', 'coords.x1', 'coords.x2'))
-bio_key <- data.frame(variable = biotic, taxon = c("Mesostigmatid mites", "Sarcoptiformes Acari",
-                                                               "Trombidiform mites", "Slim Springtails",
-                                                               "Round springtails", "Acarosporacid lichens",
-                                                               "Candelarid lichens", "Bacidiacid lichens",
-                                                               "Cladonid lichens", "Lecanorid lichens",
-                                                               "Lecideacid lichens", "Parmelid lichens",
-                                                               "Stereocaulid lichens", "Rhizocarpid lichens",
-                                                               "Physcid (shadow) lichens", "Teloschistid lichens",
-                                                               "Umbilicarid lichens", "Bryales mosses",
-                                                               "Dicranales mosses", "Grimmiales mosses",
-                                                               "Hypnales (feather) mosses", "Polytrichales mosses",
-                                                               "Pottiales mosses", "Green algae",
-                                                               "Petrels", "Adelie penguins", 
-                                                               "Chinstrap penguins", "Gentoo penguins",
+bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites Sarcoptiformes",
+                                                               "mites Trombidiformes", "Springtails slim",
+                                                               "springtails round", "lichens Acarosporacid",
+                                                               "lichens Candelarid ", "lichens, Bacidiacid",
+                                                               "lichens Cladonid", "lichens Lecanorid",
+                                                               "lichens Lecideacid", "lichens Parmelid",
+                                                               "lichens Stereocaulid", "lichens Rhizocarpid",
+                                                               "lichens Physcid (shadow)", "lichens Teloschistid",
+                                                               "lichens Umbilicarid", "mosses Bryales",
+                                                               "mosses Dicranales", "mosses Grimmiales",
+                                                               "mosses Hypnales (feather)", "mosses Polytrichales",
+                                                               "mosses Pottiales", "algae Green",
+                                                               "Petrels", "penguins Adelie", 
+                                                               "penguins Chinstrap", "penguins Gentoo",
                                                                "Cyanobacteria", "Liverworts",
                                                                "Nematodes", "Algae", "Rotifers","Tardigrades"
                                                                ))
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:2]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[25:31]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
@@ -142,12 +152,29 @@ for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:2]) {
   
 }
 
+#Render typology overview
+rmarkdown::render('./documents/AntarcticTypology_Summary.Rmd',  
+                  output_file =  "AntarcticTypology_Overview.html", 
+                  output_dir = './documents')
 
 
 ##### Supergroup descriptions 
-x <- data %>% select(unit_h, all_of(abiotic)) %>% na.omit() 
-x %>% select(-unit_h) %>% princomp() %>% autoplot(x, col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
+x <- data %>% dplyr::select(unit_h, all_of(abiotic)) %>% na.omit() 
+x %>% dplyr::select(-unit_h) %>% princomp() %>% autoplot(x, col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
 
-y <- x %>% select(-unit_h) %>% princomp() 
+y <- x %>% dplyr::select(-unit_h) %>% princomp() 
 plot3d(y$scores[,1:3], col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
-plotly::plot_ly(x = y$scores[,1], y = y$scores[,2], z = y$scores[,3], color = word(x$unit_h, 1, 1, sep = "_") %>% as.factor(), size = 0.4)
+plotly::plot_ly(x = y$scores[,1], y = y$scores[,2], z = y$scores[,3], color = word(x$unit_h, 1, 1, sep = "_") %>% as.factor(), size = 0.4) 
+
+
+
+ggplot(ecodat %>% dplyr::filter(variable %in% abiotic), 
+       aes(x = word(unit_h, 1, 1, sep = "_"), y = value, fill = word(unit_h, 1, 1, sep = "_"))) +
+  geom_boxplot() + facet_wrap(~variable) + labs(fill = "Environmental group")
+
+ggplot(ecodat %>% dplyr::filter(variable %in% good_models), 
+       aes(x = word(unit_h, 1, 1, sep = "_"), y = value, fill = word(unit_h, 1, 1, sep = "_"))) +
+  geom_boxplot() + facet_wrap(~taxon) + labs(fill = "Environmental group")
+
+ecodat %>% filter(grepl("env6", unit_h), !grepl("NA", unit_h), variable %in% good_models) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot() + facet_wrap(~taxon)
