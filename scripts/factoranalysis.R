@@ -90,6 +90,16 @@ writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_revhier_12v",
 
 detach("package:raster", unload = TRUE)
 
+### make unit rasters (hierarchical fa) ####
+unitname <- unique(out$unit_h)
+for(i in seq_along(unitname)){
+  unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500, 
+                    crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
+                    nrows = 4195, ncols = 5246)
+  unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- (out$unit_h == unitname[i])
+  writeRaster(unitsV2, filename = paste0("../Data/Typology/unit_rasters_hierFA/", unitname[i]), 
+              format = "GTiff", overwrite = TRUE)
+}
 
 ####  Exploratory - canditate units
 rownames(units) <- paste(units$x, units$y, sep = "_")
