@@ -139,6 +139,8 @@ bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites
                                                                "Nematodes", "Algae", "Rotifers","Tardigrades"
                                                                ))
 
+ecodat <- ecodat %>% left_join(bio_key)
+
 count <- 0
 for(i in sort(unique(typ_df$typV2_fa_hier_12v))[25:31]) {
   count <- count + 1

@@ -104,7 +104,7 @@ This supergroup is, on average, substantially higher in `r df2txt(envgr_cont, 0.
 
 Unit `r unitname` is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
 
-
+<!--
 Range of environmental variables present in the unit:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -119,6 +119,7 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont
 
 ```
 
+-->
 
 Distinctiveness of the unit from its group and the rest of Antarctica
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -160,7 +161,7 @@ ggplot(ecodat %>% filter(variable %in% abiotic), aes(y = value, x = unit_h == un
 -->
 
 ### Biota
-
+<!--
 Top 10 most abundant species in the unit
 ```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
 species_sorted <- rownames(PA)[PA %>% pull(count) %>% order(decreasing = TRUE)]
@@ -195,6 +196,7 @@ ggplot() +
 
 ```
 
+-->
 
 Top 10 most widespread species in the unit (found in most pixels)
 ```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
@@ -212,6 +214,8 @@ most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),
 
 DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
 ```
+
+<!--
 
 Locations of the top 3 most widespread species in the unit.
 
@@ -262,8 +266,6 @@ if(nrow(mcs) > 0){
 ```
 
 
-<!--
-
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
 singl <- sampled_species[sampled_species %in% singletons]
@@ -289,7 +291,6 @@ if(nrow(doubl_table) > 0){
 -->
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
-ecodat <- ecodat %>% left_join(bio_key)
 
   unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(taxon) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
