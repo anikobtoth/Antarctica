@@ -20,19 +20,37 @@ library(patchwork)
 
 ```
 
-## Ecosystem `r unitname`
+## Ecosystem `r descr[count] %>% word(1,1, sep = fixed("."))`
 
 `r descr[count]`
+
+### Photos
+
+```{r pictures, echo=FALSE, message=FALSE, warning=FALSE}
+pictures <- list.files(path = "../../Images", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
+
+show_pictures <- length(pictures)>0
+```
+
+```{r conditional_pictures, echo=FALSE, results='asis', eval=show_pictures}
+for(i in seq_along(pictures)){
+  path <-  pictures[i]
+  cat(paste0("![Ecosystem photo](", path, ") \n"))
+}
+
+```
+
 
 ### Distribution
 
 Maps - Full map
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
  # Full map
   ggplot() +  
     geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
                  fill="gray50", color= NA, size=0.25) +
+     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
     geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.5) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
     coord_equal() + labs(x = "x", y = "y")
@@ -40,7 +58,7 @@ Maps - Full map
 
 Smaller maps
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r inset maps, echo=FALSE, message=FALSE, warning=FALSE}
   # smaller maps
   unit$cluster <- dist(unit[,c("x", "y")], method = 'euclidean') %>% hclust(method = 'average') %>% cutree(k = 6)
   units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 100)) %>% split(.$cluster)
@@ -49,17 +67,25 @@ Smaller maps
   #width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
   #height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
   ant_crops <- df.grids %>% lapply(function(x) crop(antarctica, extent(x)))
+  bgr_unit_crops <- df.grids %>% lapply(function(x) df_crop(typ_df, x))
   
-  subplots <- map2(ant_crops, units, function(x,y){
+  subplots <- map2(ant_crops, bgr_unit_crops, function(x,y){
     p <- ggplot() +  
       geom_polygon(data = x, aes(x=long, y=lat, group=group), fill="gray50", color= NA, size=0.25) +
-      geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
-      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() +
+      geom_tile(data = y, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
+      #geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
+      #scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() +
       theme(legend.position = "none", 
             plot.margin = unit(c(0,0,0,0), "cm"), 
             axis.text = element_text(size = 6), 
             axis.title = element_blank()) +
       scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific) 
+    return(p)
+  })
+  
+  subplots <- map2(subplots, units, function(x, y){
+    p <- x + geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
+      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() 
     return(p)
   })
   
@@ -73,7 +99,7 @@ Smaller maps
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*3}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*3, fig.width = 12}
  eval(parse(text = plotcmd))
 ```
 
@@ -82,7 +108,7 @@ Smaller maps
 
 The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "_")`.
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r calculate abiotic means, message=FALSE, warning=FALSE, include=FALSE}
  unit_cont <- ecodat %>% filter(variable %in% abiotic) %>% group_by(variable) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
             medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
@@ -122,7 +148,7 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont
 -->
 
 Distinctiveness of the unit from its group and the rest of Antarctica
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE}
 ecodat$f <- "continent"
 ecodat$f[grepl(pattern = word(unitname, 1,1, "_"), ecodat$unit_h)] <- "group"
 ecodat$f[ecodat$unit_h == unitname] <- "unit"
@@ -199,7 +225,7 @@ ggplot() +
 -->
 
 Top 10 most widespread species in the unit (found in most pixels)
-```{r echo = FALSE, message = FALSE, warning = FALSE, results = "asis"}
+```{r widespread species, echo=FALSE, message=FALSE, warning=FALSE}
 species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
 
@@ -290,7 +316,7 @@ if(nrow(doubl_table) > 0){
 
 -->
 
-```{r message=FALSE, warning=FALSE, include=FALSE}
+```{r calculate biotic means, message=FALSE, warning=FALSE, include=FALSE}
 
   unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(taxon) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
@@ -318,6 +344,8 @@ than the rest of the continent.
 Unit `r unitname` is higher in suitability for `r df2txt(unit_envgr, 0.3, "taxon")` 
 and lower in suitability for `r df2txt(unit_envgr, -0.3, "taxon")` than the rest of its environmental supergroup.
 
+<!--
+
 Suitability for functional groups in `r unitname`.
 
 ```{r echo=FALSE, fig.height=5, fig.width=10, message=FALSE, warning=FALSE}
@@ -332,12 +360,13 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, b
 
 ```
 
+-->
 
 Distinctiveness of the unit from the environmental group and the rest of Antarctica 
  
 ```{r fig.height=12, fig.width=9, echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = f, fill = f)) + 
-  geom_boxplot() + facet_wrap(.~taxon) + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
+  geom_boxplot() + facet_wrap(.~taxon, scales = "free") + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
 
 ```
 

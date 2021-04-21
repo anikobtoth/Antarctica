@@ -414,6 +414,14 @@ geo_bounds <- function(df, buff = 0.1){
   return(ext)
 }
 
+df_crop <- function(df, ext, buff = 5){
+  df %>% filter(x >= ext["left"]-buff, 
+                x <= ext["right"] + buff, 
+                y >= ext["bottom"] - buff, 
+                y <= ext["top"]+ buff) %>% 
+    return()
+}
+
 aspect_ratio <- function(df){
   rangex <- diff(range(df$x))
   rangey <- diff(range(df$y))

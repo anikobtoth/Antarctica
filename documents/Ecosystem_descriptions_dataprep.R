@@ -142,14 +142,14 @@ bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites
 ecodat <- ecodat %>% left_join(bio_key)
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[25:31]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[6:31]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
  
   rmarkdown::render('./documents/Ecosystem_Descriptions.Rmd',  
                     output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".html", sep=''), 
-                    output_dir = './documents/reports')
+                    output_dir = './documents/reports/short')
   
   
 }
