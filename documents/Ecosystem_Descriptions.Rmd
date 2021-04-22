@@ -24,7 +24,7 @@ library(patchwork)
 
 `r descr[count]`
 
-### Photos
+### Photos (if available)
 
 ```{r pictures, echo=FALSE, message=FALSE, warning=FALSE}
 pictures <- list.files(path = "../../Images", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
@@ -99,7 +99,7 @@ Smaller maps
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*3, fig.width = 12}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*5, fig.width = 12}
  eval(parse(text = plotcmd))
 ```
 
@@ -128,7 +128,9 @@ The unit `r unitname` is part of the environmental supergroup `r word(unitname, 
 
 This supergroup is, on average, substantially higher in `r df2txt(envgr_cont, 0.05)` than continental antarctica. It is substantially lower in `r df2txt(envgr_cont, -0.05)` than the rest of the continent.
 
-Unit `r unitname` is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
+The elevation of unit `r unitname` ranges from `r round(elev_table$min[count])` to `r round(elev_table$max[count])` metres above sea level, but 90% of its pixels fall above `r round(elev_table$lower_90[count])` and below `r round(elev_table$upper_90[count])` metres. Its average elevation is `r round(elev_table$mean[count])` metres.
+
+The unit is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
 
 <!--
 Range of environmental variables present in the unit:
@@ -147,7 +149,8 @@ DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont
 
 -->
 
-Distinctiveness of the unit from its group and the rest of Antarctica
+#### Distinctiveness of the unit from its group and the rest of Antarctica
+
 ```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE}
 ecodat$f <- "continent"
 ecodat$f[grepl(pattern = word(unitname, 1,1, "_"), ecodat$unit_h)] <- "group"
@@ -224,7 +227,7 @@ ggplot() +
 
 -->
 
-Top 10 most widespread species in the unit (found in most pixels)
+Most widespread species in the unit (found in most pixels)
 ```{r widespread species, echo=FALSE, message=FALSE, warning=FALSE}
 species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
@@ -399,6 +402,10 @@ ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = unit_h =
 
 -->
 
+<!--
+
 ### Literature 
 
 List of papers potentially relevant to the unit
+
+-->

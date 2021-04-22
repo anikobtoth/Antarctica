@@ -141,8 +141,24 @@ bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites
 
 ecodat <- ecodat %>% left_join(bio_key)
 
+## raw elevations ###
+elev <- raster("../Data/Base/elevation_bm.tif")
+pixels <- SpatialPointsDataFrame(coords = typ_df[,c("x", "y")], data = typ_df, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+elev_extract <- raster::extract(elev, pixels)
+elevations <- data.frame(pixels) %>% 
+  dplyr::select(typV2_fa_hier_12v, x, y) %>% 
+  mutate(raw_elev = elev_extract)
+elev_table <- elevations %>% group_by(typV2_fa_hier_12v) %>% 
+  summarise(min = min(raw_elev), 
+            max = max(raw_elev), 
+            mean = mean(raw_elev), 
+            lower_90 = quantile(raw_elev, 0.05), 
+            upper_90 = quantile(raw_elev, 0.95))
+
+#### Generate reports ####
+
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[6:31]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:31]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
@@ -160,7 +176,7 @@ rmarkdown::render('./documents/AntarcticTypology_Summary.Rmd',
                   output_dir = './documents')
 
 
-##### Supergroup descriptions 
+##### Supergroup descriptions #####
 x <- data %>% dplyr::select(unit_h, all_of(abiotic)) %>% na.omit() 
 x %>% dplyr::select(-unit_h) %>% princomp() %>% autoplot(x, col = word(x$unit_h, 1, 1, sep = "_") %>% as.factor() %>% as.numeric())
 
