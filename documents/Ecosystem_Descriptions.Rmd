@@ -1,7 +1,10 @@
 ---
 title: "Ecosystem Description"
 author: "Aniko B. Toth"
-output: html_document
+output:
+  word_document: default
+  html_document: default
+always_allow_html: true
 ---
 
 
@@ -14,6 +17,7 @@ library(raster)
 library(knitr)
 library(DT)
 library(patchwork)
+library(flextable)
 
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
@@ -143,7 +147,7 @@ ggplot(ecodat %>% filter(variable %in% abiotic & unit_h == unitname), aes(x = va
 The table below shows the difference in the mean values of all environmental variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont, by = "variable") %>% dplyr::select(variable, grep("mean", names(.))) %>% setNames(c("variable", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+#DT::datatable(merge(envgr_cont, unit_envgr, by = "variable") %>% merge(unit_cont, by = "variable") %>% dplyr::select(variable, #grep("mean", names(.))) %>% setNames(c("variable", "group_continent", "unit_group", "unit_continent")) %>% #arrange(desc(unit_continent)))
 
 ```
 
@@ -205,7 +209,7 @@ while(n < 10){
 
 most_sampled_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
-DT::datatable(most_sampled_species, caption = paste0("The top most abundant species in ecosystem ", unitname))
+#DT::datatable(most_sampled_species, caption = paste0("The top most abundant species in ecosystem ", unitname))
 ```
 
 Locations of the top 3 most abundant species in the unit.
@@ -241,7 +245,9 @@ while(n < 10){
 
 most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
 
-DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
+#DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
+
+flextable(most_widespread_species) %>% set_caption(caption = paste0("The top most widespread species in ecosystem ", unitname))
 ```
 
 <!--
@@ -270,7 +276,8 @@ commons <- commonspp[which(commonspp == count)] %>% names()
 
 common_table <- sppDat[match(commons, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = commons %in% restricted_spp, relative_pct = dom_pct[commons]) %>% filter(relative_pct > 0) %>% tibble()
 common_table <- common_table %>% arrange(desc(relative_pct))
-if(nrow(common_table)>0){DT::datatable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
+if(nrow(common_table)>0){
+#DT::datatable(common_table, caption = paste0("A list of common species whose highest incidence of sampling is in ", unitname))
   }else cat("None \n")
 
 ```
@@ -300,7 +307,7 @@ sampled_species <- rownames(PA)[PA %>%  pull(count) %>% `>`(0) %>% which()]
 singl <- sampled_species[sampled_species %in% singletons]
 singl_table <- sppDat[match(singl, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = singl %in% restricted_spp) 
 if(nrow(singl_table) > 0){
-  DT::datatable(singl_table, caption = paste0("A list of singletons (only one sampled individual) that are found in ", unitname))
+  #DT::datatable(singl_table, caption = paste0("A list of singletons (only one sampled individual) that are found in ", unitname))
 } else cat("None \n")
 
 ```
@@ -312,7 +319,7 @@ A list of doubletons (two sampled individuals) found in the unit
 doubl <- sampled_species[sampled_species %in% doubletons]
 doubl_table <- sppDat[match(doubl, sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = doubl %in% restricted_spp) 
 if(nrow(doubl_table) > 0){
-  DT::datatable(doubl_table, caption = paste0("A list of doubletons (two sampled individuals) that are found in ", unitname))
+  # DT::datatable(doubl_table, caption = paste0("A list of doubletons (two sampled individuals) that are found in ", unitname))
 } else cat("None \n")
 
 ```
@@ -359,7 +366,7 @@ ggplot(ecodat %>% filter(variable %in% good_models & unit_h == unitname), aes(x 
 The table below shows the difference in the mean values of all suitability variables in the environmental group compared to the continent, the unit compared to the environmental group, and finally the unit compared to the rest of the continent. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, by = "taxon") %>% dplyr::select(taxon, grep("mean", names(.))) %>% setNames(c("taxon", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
+# DT::datatable(merge(envgr_cont, unit_envgr, by = "taxon") %>% merge(unit_cont, by = "taxon") %>% dplyr::select(taxon, grep("mean", # names(.))) %>% setNames(c("taxon", "group_continent", "unit_group", "unit_continent")) %>% arrange(desc(unit_continent)))
 
 ```
 
