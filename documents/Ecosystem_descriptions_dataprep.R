@@ -6,6 +6,7 @@ library(cowplot)
 library(rts)
 library(ggfortify)
 library(rgl)
+library(rgeos)
 
 # Helper functions ####
 source('./scripts/Helper_Functions.R')
@@ -34,7 +35,7 @@ good_models <- biotic[!biotic%in% bad_models]
 load("./data/DB_smallPix_all.RData")
 
 # Antarctica shapefile
-antarctica <- readOGR("../Data/Base", "Antarctic_landpoly")
+antarctica <- readOGR("../Data/Base", "Antarctic_landpoly") %>% gSimplify(tol = 2, topologyPreserve = TRUE)
 
 # Occurrence data
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
@@ -124,7 +125,7 @@ ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon",
 bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites Sarcoptiformes",
                                                                "mites Trombidiformes", "Springtails slim",
                                                                "springtails round", "lichens Acarosporacid",
-                                                               "lichens Candelarid ", "lichens, Bacidiacid",
+                                                               "lichens Candelarid ", "lichens Bacidiacid",
                                                                "lichens Cladonid", "lichens Lecanorid",
                                                                "lichens Lecideacid", "lichens Parmelid",
                                                                "lichens Stereocaulid", "lichens Rhizocarpid",
@@ -158,21 +159,21 @@ elev_table <- elevations %>% group_by(typV2_fa_hier_12v) %>%
 #### Generate reports ####
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[1:31]) {
+for(i in sort(unique(typ_df$typV2_fa_hier_12v))[2:31]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
  
-  rmarkdown::render('./documents/Ecosystem_Descriptions.Rmd',  
-                    output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".html", sep=''), 
-                    output_dir = './documents/reports/short')
+  rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
+                    output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".docx", sep=''), 
+                    output_dir = './documents/reports/short_doc')
   
   
 }
 
 #Render typology overview
-rmarkdown::render('./documents/AntarcticTypology_Summary.Rmd',  
-                  output_file =  "AntarcticTypology_Overview.html", 
+rmarkdown::render('./documents/AntarcticTypology_Overview.Rmd',  
+                  output_file =  "AntarcticTypology_Overview.doc", 
                   output_dir = './documents')
 
 
@@ -196,3 +197,36 @@ ggplot(ecodat %>% dplyr::filter(variable %in% good_models),
 
 ecodat %>% filter(grepl("env6", unit_h), !grepl("NA", unit_h), variable %in% good_models) %>% 
   ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot() + facet_wrap(~taxon)
+
+
+
+######### Regional units ###############
+load("./data/spatialUnits.RData")
+acbr <- raster("../Data/ACBRs/acbrs.tif")
+pixels <- SpatialPointsDataFrame(coords = typ_df[,c("x", "y")], data = typ_df, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+acbrs_extract <- raster::extract(acbr, pixels, buffer =)
+acbrs <- data.frame(pixels) %>% 
+  dplyr::select(typV2_fa_hier_12v, x, y) %>% 
+  mutate(ACBR_ID = acbrs_extract) %>% 
+  merge(spatialUnits %>% dplyr::select(ACBR_ID, ACBR_Name) %>% 
+                                              distinct(), by = "ACBR_ID")
+
+#### for each RU, find ID of neighbouring pixels
+acbrs$RU_raw <- paste(acbrs$ACBR_Name, acbrs$typV2_fa_hier_12v, sep = "_")
+RUs <- paste(acbrs$ACBR_Name, acbrs$typV2_fa_hier_12v, sep = "_") %>% unique()
+acbrs <- data$unit_h %>% unique() %>% sort() %>% data.frame(unit_ID = 1:36) %>% setNames(c("unitName", "unit_ID")) %>% 
+  merge(acbrs, by.x = "unit_ID", by.y = "typV2_fa_hier_12v", all.y = TRUE) %>% 
+  mutate(envir = word(unitName, 1,1, sep = "_"))
+
+v2 <- list()
+for(i in seq_along(RUs)){
+  runit <- acbrs %>% filter(RU_raw == RUs[i])
+  others <- acbrs %>% filter(!RU_raw == RUs[i]) 
+  # units with > 100 pixels: only merge if same unit type in neighbouring ACBR has significant adjacent pixels
+  if(nrow(runit) >= 100) others <- others %>% filter(!ACBR_Name == runit$ACBR_Name[1] & unit_ID == runit$unit_ID[1])
+  # units with < 100 pixels: merge if same env group in same or neighbouring ACBR has significant adjacent pixels
+  if(nrow(runit) < 100) others <- others %>% filter(envir == runit$envir[1])
+  
+  v2[[i]] <- apply(runit %>% dplyr::select(x, y), 1, function(z)  others %>% filter(x %in% c(z["x"], z["x"]+1000, z["x"]-1000), y %in% c(z["y"], z["y"]+1000, z["y"]-1000))) %>%
+    bind_rows()
+}

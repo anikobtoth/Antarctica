@@ -2,7 +2,10 @@
 title: "Antarctic Typology Summary"
 author: "Aniko B Toth"
 date: "25/03/2021"
-output: html_document
+output:
+  word_document: default
+  html_document: default
+always_allow_html: true
 ---
 
 ```{r setup, include=FALSE, results = "asis"}
@@ -14,6 +17,7 @@ library(DT)
 library(ggfortify)
 library(rgl)
 library(viridis)
+library(flextable)
 
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
@@ -40,7 +44,8 @@ The resulting classification scheme has 6 environmental supergroups (including t
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 env_descr <- read_csv("Environment_group_table.csv")
-DT::datatable(env_descr)
+#DT::datatable(env_descr)
+flextable(env_descr) %>% width(width = c(1, .5, 1, 4))
 ```
 
 Below is a visual overview of the classification of environmental groups. Each panel represents the range of values for one environmental variable in each environmental group. Cloud, melt, and precip are moisture availability variables. Temp, DDminus5, modT_0315, and sumtemp are temperature-related variables. Rad is solar radiation, which is calculated based on aspect. Elev = elevation; rugos = Rugosity; slope = slope of incline; wind = an average measure of the amount of wind. 
