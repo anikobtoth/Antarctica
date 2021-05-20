@@ -1,3 +1,6 @@
+library(ggplot2)
+library(viridis)
+library(dplyr)
 
 ## Summary of unit areas distribution in ACBRs
 ovl_area <- read_csv("../Data/Base/IFA_Unit_areas.txt")
