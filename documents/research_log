@@ -359,6 +359,42 @@ While in Hobart we met with Jonny Stark who gave us some good leads on data type
 A regional version of the terrestrial ice-free typology is underway, with units being split by ACBR, then subjected to a potential merging scheme that unifies ecosystems that are similar and broadly adjacent/contiguous (e.g. same ecosystem type in two neighbouring ACBRs). Possibility of discarding very small ecosystems that cannot be merged (largest is 40 pixels, likely 15-20km2 max). Regional-scale units will likely end up being the units that are risk-assessed under the IUCN RLE.
 
 
+18 June 2021
+
+We have responses and comments from about 6 people so far (R Leihy, D Hodgson, K Hughes, P Convey, D Cowan, S Bostrom) and still waiting on 2 who expressed interest (Mark Stevens and Charles Lee). Did not receive replies from 2 initial contacts. Three additional contacts who are familiar with DML were suggested by S Bostrom and need to be contacted. 
+
+Initial comments are cautiously positive so far for the most part. Many people asked for more information about the methods and data, which I responded to individually by email. I have asked people to indicate when they can meet via zoom but so far no one has replied to that query. 
+
+Main comments so far: 
+1. Queries about the variable selection process and suggestions for other variables to include. Geology, wind direction, topographic positioning index, albedo, and data on prokaryotes/soil microbiomes have all been brought up. 
+
+2. Suggestions for how to clarify and standardise terminology when naming units, and comments about the appropriateness of current word choice in some cases.
+
+3. Observations about likely regional variation within units, especially for units that occur in multiple places around Antarctica
+
+4. Inclusion of lakes
+
+5. Citing more of the existing literature and incorporating or referencing existing classification schemes. Possibility of using them as validation.
+
+
+Next steps:
+1. We need to send reminders to the people who promised replies but haven't sent them.
+2. We need to contact any additional people who haven't yet been contacted.
+3. A group email to everyone who has expressed interest, potentially with a summary of the comments so far and asking to schedule zoom meetings individually. Potentially share the manuscript draft as well, or is it too early for this?
+4. Possibly, an updated version of the typology/descriptions based on the comments so far, although no one has suggested a massive overhaul. Main structural concerns seem to revolve around data availability and variable selection. I need some decisions/answers around whether we can redo the analyses with better data coverage (as Aleks has discussed with Ben Raymond), as well as thoughts from both of you on including any additional variables and settling on a less subjective variable selection process? I don't want to rewrite the descriptions yet if we are going to make any major changes such as these.
+5. Some analyses revealing the relatedness of the ecosystems (e.g. PCA or dendrogram-style).
+ 
+
+12 August 2021
+
+Following discussions with Aleks and Ben Raymond at the AAD data centre, we decided to rerun the classification using new higher-resolution versions of the initial abiotic data inputs. New layers were provided by Ben.
+
+This is partially in response to comments from the group pointing out that the difference between env1 and env6 was dodgy because it was based on missing data. The new higher resolution data layers will allow us to formally classify pixels formerly in Env6. 
+
+Additionally, I decided to pare down the number of variables included, removing sumptemp, ModisTemp, and DDminus5 as these are all correlated with meanTemp and did not add much to the classification judging by previous results. ModT also could not be extracted for edge pixels and DDminus5 had a highly skewed distribution not easily normalisable by conventional means. Though available, we also did not use aspect, which is a direct input of the calcualtion for the solar radiation layer. The fresh classification was thus run with 9 variables: c("cloud", "wind", "meanTemp", "melt","elevation", "rugosity", "slope", "totPrecip", "solar") 
+
+Using the same procedure as previously described, I ran the hierarchical factor analysis (i.e., with minimum loading of 0.3 at the top level and minimum loading of 0.35 at the bottom level). The top level classification yielded 5 environments, and the second level yielded 5, 5, 6, 6, and 6 units for each environment, respectively. Next step is to undertake a comparison of the typologies to see which previous units have direct analogues in the new typology.
+
 
 
 
