@@ -3,16 +3,14 @@ library(tidyverse)
 
 source('./scripts/Helper_Functions.R')
 
-
 ## Load data ####
-antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
-load("./data/DB_smallPix_all.RData")
+#antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
 
-abiotic <- c("cloud", "sumtemp", "wind", "temp", "melt", 
-             "modT_0315", "elev", "rad", "rugos", "slope", "DDminus5", "precip") ## excl. "coast", "geoT"
+v1 <- readRDS("./data/combined_100m_extract.rds")
 
-l <- list.dirs("../Data/Species/final_results", recursive = FALSE) %>% 
-  file.path("trend_basedist0.tif")
+abiotic <- c("cloud", "wind", "meanTemp", "melt", 
+             "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
+
 n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
 
 bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
@@ -27,27 +25,27 @@ bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
 
 good_models <- n[!n%in% bad_models] 
 
-
-v1 <- smallPix
-
 ##### Factor analysis L1 (abiotic variables) ####
 
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
-pdat <- data.frame(na.omit(v1[,1:6]), consensus = factor_analysis(cldat, mincomp = 0.3))
+pdat <- data.frame(na.omit(v1 %>% select(pixID, contains("coords"), all_of(abiotic))) %>% 
+                     select(pixID, contains("coords")), 
+                   consensus = factor_analysis(cldat, mincomp = 0.3))
  
  #plot(antarctica)
  #points(y~x, data = pdat, col = hsv(as.numeric(pdat$consensus)/nfact), pch = 16, cex = 0.1)
  #legend("bottomleft", fill = hsv((1:nfact)/nfact), legend = 1:nfact)
 
 v1 <- full_join(pdat, v1)
+v1 <- v1 %>% mutate(x = coords.x1, y = coords.x2)
 rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 
 # Classify unclassified L1 pixels 
-v1 <- classify_by_neighbours(v1, consensus)
+v1 <- classify_by_neighbours(v1, consensus, res = 100)
 
 # pixels with no classified neighbors fall in separate category
-v1$consensus <- factor(v1$consensus, levels = 1:(nfact + 1))
-v1$consensus[is.na(v1$consensus)] <- (nfact + 1)
+ #v1$consensus <- factor(v1$consensus, levels = 1:(nfact + 1))
+ #v1$consensus[is.na(v1$consensus)] <- (nfact + 1)
 
 ##### Dual Factor analysis L1 (SDM data) ###############
 cldat <- v1 %>% dplyr::select(all_of(good_models)) %>% na.omit()

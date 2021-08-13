@@ -1,49 +1,43 @@
-### This code prepares some of the data items needed in other scripts
-### Outputs are saved so this script does not need to be run each time.
 
 library(rgdal)
 library(raster)
 library(tidyverse)
 
-antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
+## Raster centroids
+pix <- readOGR("../Data/Abiotic_Layers/Points_100m", "centroids_100m_IFA")
 
-load("./data/DB_habPix.RData")
+# environmental data
 
-habPix <- habPix %>% mutate(x = round(as.integer(x), -3), y = round(as.integer(y), -3))
+abiotic <- c("cloud", "wind", "meanTemp", "melt", "modT", "aspect", "elevation", "rock", "rugosity", "slope", "solar", "DDm5", "totPrecip")
+l <- list.files("../Data/Abiotic_Layers", ".tif$", full.names = T)
+layers <- purrr::map(l, raster) %>% setNames(abiotic)
 
-l <- list.dirs("../Data/Species/final_results", recursive = FALSE) %>% 
-  file.path("trend_basedist0.tif")
-n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
+abiotic_data <- purrr::map(layers, ~raster::extract(.x, coordinates(pix)))
+abiotic_data <- cbind(coordinates(pix), reduce(abiotic_data, data.frame) %>% 
+                 set_names(abiotic)) %>% tibble() %>% dplyr::select(-rock)
+
+saveRDS(abiotic_data, "./data/abiotic_100m_extract.rds", compress = T)
+
+# SDM data
+
+biotic <- list.dirs("../Data/Species/final_results", recursive = F, full.names = F)
+l <- list.files("../Data/Species/final_results", "trend_basedist0.tif", recursive = T, full.names = T)
+layers <- raster::stack(l) 
+projection(layers) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m
++no_defs"
+
+biotic_data <- raster::extract(layers, coordinates(pix))
+biotic_data <- cbind(coordinates(pix), data.frame(biotic_data) %>% set_names(biotic)) %>% 
+  tibble()
+saveRDS(biotic_data, "./data/biotic_100m_extract.rds", compress = T)
 
 
-SDMs <- raster::stack(l)
-crs(SDMs) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+## combine 
+lls <- spTransform(pix, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")) %>% 
+  coordinates() %>% data.frame() %>% setNames(c("lon", "lat"))
 
-# ALL small pixels (centroid points)
-hp <- readOGR("../Data/Habitats", "habPix_ALL_joinOrig")
-hp <- SpatialPointsDataFrame(hp, data = data.frame(hp))
+v1 <- tibble(pixID = data.frame(pix) %>% pull(pointid), 
+             lls, 
+             full_join(abiotic_data, biotic_data, by = c("coords.x1", "coords.x2")))
 
-# extract SDM data
-hpext <- raster::extract(SDMs, coordinates(hp)[,1:2]) %>% data.frame() %>% setNames(n) %>% scale()
-rm(SDMs)
-
-## Format SDM Data #####
-hpdat <- cbind(coordinates(hp)[,1:2], hpext) %>% data.frame() %>%
-  mutate(x = round(as.integer(coords.x1), -3), y = round(as.integer(coords.x2), -3)) %>% na.omit()
-
-# join habitat data
-v1 <- full_join(habPix, hpdat, by = c("x", "y")) %>% select(-genus, -records, -spec, -IFA)
-
-# Add missing lat lons 
-habPix_spt <- SpatialPointsDataFrame(coords = cbind(v1$x, v1$y), 
-                                     data = v1, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
-habPix_wgs <- spTransform(habPix_spt, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
-v1 <- v1 %>% mutate(lon = coordinates(habPix_wgs)[,1], lat = coordinates(habPix_wgs)[,2])
-rownames(v1) <- paste(v1$x, v1$y, sep = "_")
-
-smallPix <- v1
-
-## 1x1km pixels with any data.
-### Most have both SDM and abiotic data but some have only one.
-
-save(smallPix, file = "./data/DB_smallPix_all.Rdata")
+saveRDS(v1, "./data/combined_100m_extract.rds", compress =T)
