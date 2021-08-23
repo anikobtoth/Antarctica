@@ -20,8 +20,8 @@ saveRDS(abiotic_data, "./data/abiotic_100m_extract.rds", compress = T)
 
 # SDM data
 
-biotic <- list.dirs("../Data/Species/final_results", recursive = F, full.names = F)
-l <- list.files("../Data/Species/final_results", "trend_basedist0.tif", recursive = T, full.names = T)
+biotic <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = F)
+l <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = T)
 layers <- raster::stack(l) 
 projection(layers) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m
 +no_defs"
