@@ -11,17 +11,26 @@ v1 <- readRDS("./data/combined_100m_extract.rds")
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
 
-n <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
+n <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
 
-bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
-                "Chordata_Aves_Procellariiformes___",
-                "Arthropoda_Entognatha_Poduromorpha___",
-                "Bryophyta_Bryopsida_Grimmiales___",
-                "Cyanobacteria_____",
-                "Tardigrada_____",
-                "Marchantiophyta_____",
-                "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
-                "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
+# bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
+#                 "Chordata_Aves_Procellariiformes___",
+#                 "Arthropoda_Entognatha_Poduromorpha___",
+#                 "Bryophyta_Bryopsida_Grimmiales___",
+#                 "Cyanobacteria_____",
+#                 "Tardigrada_____",
+#                 "Marchantiophyta_____",
+#                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
+#                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
+bad_models <- c("adeliae.tif",
+                "Procellariiformes.tif",
+                "Poduromorpha.tif",
+                "Grimmiales.tif",
+                "Cyanobacteria.tif",
+                "Tardigrada.tif",
+                "Marchantiophyta.tif",
+                "Lecideaceae.tif",
+                "Umbilicariaceae.tif")
 
 good_models <- n[!n%in% bad_models] 
 
@@ -69,21 +78,27 @@ v1 <- v1 %>% split(.$V1) %>% purrr::map(classify_by_neighbours, consensusA2) %>%
 
 
 ##### Create output rasters ###############
-out <- v1 %>% select(-all_of(n), -all_of(abiotic), -coast, -geoT) %>% 
-  mutate(unit_h = paste0("env", consensus, "_sdm", consensus2),
-         unit_d = paste0("env", consensus, "_sdm", V1), 
-         unit_r = paste0("sdm", V1, "_env", consensusA2))
+out <- v1 %>% select(-all_of(n), -all_of(abiotic), -ModT, -aspect, -DDm5) %>% 
+  mutate(unit_h = paste0("env", consensus, "_sdm", consensus2)
+         #unit_d = paste0("env", consensus, "_sdm", V1), 
+         #unit_r = paste0("sdm", V1, "_env", consensusA2)
+         )
 
 rownames(out) <- paste(out$x, out$y, sep = "_")
 
 ## Make rasters #
 library(raster)
 
-unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500, 
-                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
-                  nrows = 4195, ncols = 5246)
-unitsV2[cellFromXY(unitsV2, cbind(out$x, out$y))] <- out$unit_r %>% as.factor() %>% as.numeric()
-writeRaster(unitsV2, filename = "../Data/Typology/typV2_fa_revhier_12v", 
+# unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500, 
+#                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
+#                   nrows = 4195, ncols = 5246)
+
+unitsV4 <- raster(xmn = -2700100, xmx = 2600100, ymn = -2200100, ymx = 2100100,
+                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
+                  nrows = 43002, ncols = 53002)
+unitsV4[cellFromXY(unitsV4, cbind(out$x, out$y))] <- out$unit_h %>% as.factor() %>% as.numeric()
+
+writeRaster(unitsV4, filename = "../Data/Typology/typV5_fa_hier_9v", 
             format = "GTiff", overwrite = TRUE)
 
 detach("package:raster", unload = TRUE)
@@ -110,56 +125,8 @@ ggplot(hd, aes(x = unit_h, y = value)) + geom_boxplot() + facet_wrap(~variable, 
 hd <- hd %>% separate(unit_h, sep = "_", into= c("abiotic", "biotic"))
 ggplot(hd, aes(x = abiotic, col = abiotic, y = value)) + geom_boxplot(outlier.size = .2) + facet_wrap(~variable, scales = "free")
 
-######### OLD STUFF #########
-#### Exploratory abiotic factor analyses  ##############
-# Varying factor levels
 
-for(i in 1:9){
-  nfact <- i+1
-  cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit() %>% scale()
-  
-  test <- fa(cldat, nfact, rotate = "varimax" )
-  
-  sc <- data.frame(test$scores)
-  
-  pdat <- data.frame(sc, na.omit(v1[,1:6]))
-  pdat$consensus <- apply(sc, 1, which.max)
-  
-  # Plots ##
-  pdf(paste0("../Abiotic_Factor_Analyses/Figs_",nfact,"_factors.pdf"))
-  plot(antarctica)
-  points(y~x, data = pdat, col = hsv(pdat$consensus/nfact), 
-         pch = 16, cex = 0.1)
-  
-  
-  habdat <- data.frame(cldat)
-  habdat$consensus <- apply(sc, 1, which.max)
-  
-  #habdat %>% group_by(consensus) %>% summarise_all(list(min, mean, median, max))
-  
-  hd <- reshape2::melt(habdat, id.vars = "consensus") %>% mutate(consensus = factor(consensus))
-  print(ggplot(hd, aes(group = consensus, y = value, fill = consensus)) + 
-          geom_boxplot() + facet_wrap(~variable, scales = "free") +
-          scale_fill_manual(values =  hsv(1:nfact/nfact)))
-  
-  dev.off()
-  
-  # Loadings ##
-  l <- data.frame(matrix(as.numeric(loadings(test)), attributes(loadings(test))$dim, dimnames=attributes(loadings(test))$dimnames))
-  write.csv(l, paste0("../Abiotic_Factor_Analyses/Loadings_",nfact,"_factors.csv"))
-  write.csv(test$Vaccounted %>% data.frame(), file = paste0("../Abiotic_Factor_Analyses/Variance_",nfact,"_factors.csv") )
-  # Create raster ##
-  rstr <- raster(SDMs[[1]])
-  
-  rstr[cellFromXY(rstr, cbind(pdat$x, pdat$y))] <- pdat$consensus
-  
-  writeRaster(rstr, filename = paste0("../Abiotic_Factor_Analyses/FA", nfact), 
-              format = "GTiff", overwrite = TRUE)
-  
-}
+#####
 
-
-
-##############
-
+######
 
