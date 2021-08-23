@@ -396,6 +396,14 @@ Additionally, I decided to pare down the number of variables included, removing 
 Using the same procedure as previously described, I ran the hierarchical factor analysis (i.e., with minimum loading of 0.3 at the top level and minimum loading of 0.35 at the bottom level). The top level classification yielded 5 environments, and the second level yielded 5, 5, 6, 6, and 6 units for each environment, respectively. Next step is to undertake a comparison of the typologies to see which previous units have direct analogues in the new typology.
 
 
+23 August 2021
+The last attempt at the typology yielded ok results but the poor resolution of the SMD layers made the ecosystem units awkward and chunky. I produced 100m resolution versions of the SDM layers using cubic interpolation. Visual check confirms the results seem reasonable, without any outliers. 
+
+I reran the typology with these smoother SDM layers, which should give more realistic results esp. when large unbroken areas of habitat exist, such as in the dry valleys. The top level classification yielded 5 environments, and the second level yielded 5, 5, 7, 6, and 5 units for each environment, respectively.
+
+This new classification will be used to produce V5 of the typology and compare with V3 as described above.
+
+
 
 
 
