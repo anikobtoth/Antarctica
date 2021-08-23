@@ -31,3 +31,6 @@ vignettes/*.pdf
 data
 results
 *.html
+
+# old stuff
+Archive
