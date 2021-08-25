@@ -1,5 +1,5 @@
 library(tidyverse)
-library(reshape2)
+#library(reshape2)
 library(rgdal)
 library(sp)
 library(cowplot)
@@ -12,27 +12,27 @@ library(rgeos)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
-out <- readRDS("./results/out_TYP_fa_hier_dual_reverse_units.rds")
+out <- readRDS("./results/out_TYP_hier_units_V5.rds")
 
-biotic <- list.dirs("../Data/Species/final_results", recursive = FALSE, full.names = FALSE)
+biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
 
-abiotic <- c("cloud", "sumtemp", "wind", "temp", "melt", 
-             "modT_0315", "elev", "rad", "rugos", "slope", "DDminus5", "precip") ## excl. "coast", "geoT"
+abiotic <- c("cloud", "wind", "meanTemp", "melt", 
+             "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
 
-bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
-                "Chordata_Aves_Procellariiformes___",
-                "Arthropoda_Entognatha_Poduromorpha___",
-                "Bryophyta_Bryopsida_Grimmiales___",
-                "Cyanobacteria_____",
-                "Tardigrada_____",
-                "Marchantiophyta_____",
-                "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
-                "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
+bad_models <- c("adeliae.tif",
+                "Procellariiformes.tif",
+                "Poduromorpha.tif",
+                "Grimmiales.tif",
+                "Cyanobacteria.tif",
+                "Tardigrada.tif",
+                "Marchantiophyta.tif",
+                "Lecideaceae.tif",
+                "Umbilicariaceae.tif")
 
 good_models <- biotic[!biotic%in% bad_models] 
 
 # SDM and environmental data
-load("./data/DB_smallPix_all.RData")
+smallPix <- readRDS("./data/combined_100m_extract.rds")
 
 # Antarctica shapefile
 antarctica <- readOGR("../Data/Base", "Antarctic_landpoly") %>% gSimplify(tol = 2, topologyPreserve = TRUE)
@@ -44,7 +44,7 @@ occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
 # Unit raster
 library(raster)
-typ_fah <- raster("../Data/Typology/typV2_fa_hier_12v.tif")
+typ_fah <- raster("../Data/Typology/typV5_fa_hier_9v.tif")
 
 # GBIF occurrence data
 GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
@@ -54,7 +54,7 @@ descr <- read_file("./documents/Unit_descriptions.txt")
 descr <- descr %>% strsplit("\r\n\r\n") %>% unlist()
 
 # Format data #####
-data <- merge(out %>% dplyr::select(ID, unit_h, x, y, Prop_in_IFA), smallPix)
+data <- full_join(out %>% dplyr::select(pixID, unit_h, x, y), smallPix, by = "pixID")
 #data <- data %>% filter(!unit_h %in% c("env1_sdmNA", "env2_sdmNA", "env3_sdmNA", "env4_sdmNA", "env5_sdmNA"))
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                              class, order_, family, genus, species) %>% unique()
@@ -83,8 +83,7 @@ sppDat <- sppDat %>% filter(!(scientific == "Lepadella patella" & !family == "Le
 PA <- occ %>% data.frame() %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
 
 # weed out so only one occurrence per species per cell
-typology <- raster("../Data/Typology/typV2_fa_hier_12V.tif")
-PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typology, occ)) %>% 
+PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typ_fah, occ)) %>% 
   dplyr::select(scientific, cell, fah) %>% distinct() %>%
   reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
 
@@ -92,8 +91,12 @@ PArel <- apply(PA, 2, function(x) x/sum(x))
 commonspp <- PA[which(rowSums(PA) >10),] %>% apply(1, which.max)
 dom_pct <- 100*(PA[which(rowSums(PA) >10),] %>% apply(1, max)/PA[which(rowSums(PA) >10),] %>% rowSums())
 
-typ <- as(typ_fah, "SpatialPixelsDataFrame")
-typ_df <- as.data.frame(typ) %>% filter(!typV2_fa_hier_12v %in% c(6, 11, 17, 23, 29))
+#typ <- as(typ_fah, "SpatialPixelsDataFrame")
+#typ_df <- as.data.frame(typ) %>% filter(!typV2_fa_hier_12v %in% c(6, 11, 17, 23, 29))
+typ_df <- out %>% mutate(typV5 = as.factor(unit_h) %>% as.numeric()) %>% 
+  filter(!is.na(consensus2)) %>% 
+  dplyr::select(x, y, unit_h, typV5) %>% tibble()
+  
 
 rm(out, smallPix)
 detach("package:raster", unload = TRUE)
@@ -121,49 +124,45 @@ apply(commonPA, 1, which.max)
 ## Endemicity
 spp_list <- rownames(PA)
 
-ecodat <- melt(data, id.vars = c("ID", "unit_h", "x", "y", "Prop_in_IFA", "lon", 'lat', 'coords.x1', 'coords.x2'))
-bio_key <- data.frame(variable = biotic, taxon = c("mites Mesostigmata ", "mites Sarcoptiformes",
-                                                               "mites Trombidiformes", "Springtails slim",
-                                                               "springtails round", "lichens Acarosporacid",
-                                                               "lichens Candelarid ", "lichens Bacidiacid",
-                                                               "lichens Cladonid", "lichens Lecanorid",
-                                                               "lichens Lecideacid", "lichens Parmelid",
-                                                               "lichens Stereocaulid", "lichens Rhizocarpid",
-                                                               "lichens Physcid (shadow)", "lichens Teloschistid",
-                                                               "lichens Umbilicarid", "mosses Bryales",
-                                                               "mosses Dicranales", "mosses Grimmiales",
-                                                               "mosses Hypnales (feather)", "mosses Polytrichales",
-                                                               "mosses Pottiales", "algae Green",
-                                                               "Petrels", "penguins Adelie", 
-                                                               "penguins Chinstrap", "penguins Gentoo",
-                                                               "Cyanobacteria", "Liverworts",
-                                                               "Nematodes", "Algae", "Rotifers","Tardigrades"
-                                                               ))
+#ecodat <- data %>% #select(-all_of(bad_models)) %>% 
+#  pivot_longer(cols = all_of(c(abiotic, good_models)))
+bio_key <- data.frame(variable = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
+                                                   "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
+                                                   "algae Green", "lichens Cladonid", "Cyanobacteria","mosses Dicranales",
+                                                   "Springtails slim", "mosses Grimmiales", "mosses Hypnales (feather)",
+                                                   "lichens Lecanorid", "lichens Lecideacid",  "Liverworts",
+                                                   "mites Mesostigmata ", "Nematodes", "Algae", "penguins Gentoo",
+                                                   "lichens Parmelid", "lichens Physcid (shadow)", "springtails round",
+                                                   "mosses Polytrichales", "mosses Pottiales", "Petrels", "lichens Rhizocarpid",
+                                                   "Rotifers", "mites Sarcoptiformes", "lichens Stereocaulid", "Tardigrades",
+                                                   "lichens Teloschistid", "mites Trombidiformes", "lichens Umbilicarid"))
 
-ecodat <- ecodat %>% left_join(bio_key)
+#ecodat <- ecodat %>% left_join(bio_key)
 
 ## raw elevations ###
-elev <- raster("../Data/Base/elevation_bm.tif")
-pixels <- SpatialPointsDataFrame(coords = typ_df[,c("x", "y")], data = typ_df, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
-elev_extract <- raster::extract(elev, pixels)
-elevations <- data.frame(pixels) %>% 
-  dplyr::select(typV2_fa_hier_12v, x, y) %>% 
-  mutate(raw_elev = elev_extract)
-elev_table <- elevations %>% group_by(typV2_fa_hier_12v) %>% 
-  summarise(min = min(raw_elev), 
-            max = max(raw_elev), 
-            mean = mean(raw_elev), 
-            lower_90 = quantile(raw_elev, 0.05), 
-            upper_90 = quantile(raw_elev, 0.95))
+# elev <- raster("../Data/Abiotic_layers/REMA_100m_dem_geoid.tif")
+# pixels <- SpatialPointsDataFrame(coords = typ_df[,c("x", "y")], data = typ_df, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+# elev_extract <- raster::extract(elev, pixels)
+# elevations <- data.frame(pixels) %>% 
+#   dplyr::select(typV2_fa_hier_12v, x, y) %>% 
+#   mutate(raw_elev = elev_extract)
+# elev_table <- elevations %>% group_by(typV2_fa_hier_12v) %>% 
+#   summarise(min = min(raw_elev), 
+#             max = max(raw_elev), 
+#             mean = mean(raw_elev), 
+#             lower_90 = quantile(raw_elev, 0.05), 
+#             upper_90 = quantile(raw_elev, 0.95))
 
 #### Generate reports ####
 
 count <- 0
-for(i in sort(unique(typ_df$typV2_fa_hier_12v))[2:31]) {
+for(i in sort(unique(typ_df$typV5))[1:2]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
-  unit <- typ_df %>% dplyr::filter(typV2_fa_hier_12v == i) %>% mutate(ecosystem = as.factor(typV2_fa_hier_12v))
- 
+  unit <- typ_df %>% dplyr::filter(typV5 == i) %>% mutate(ecosystem = as.factor(typV5))
+  ecodat <- data %>% filter(unit_h == unitname) %>% 
+    select(-all_of(bad_models)) %>%
+    pivot_longer(cols = all_of(c(abiotic, good_models)))
   rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
                     output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".docx", sep=''), 
                     output_dir = './documents/reports/short_doc')
@@ -330,7 +329,8 @@ for(i in seq_along(cl)){
   save(ext, bg, bg_tile, ru_merge, p, file = "./results/RegionalUnitsPlots.RData")
 }
 
-
+# Generate report
+load("./results/RegionalUnitsPlots.RData")
 rmarkdown::render('./documents/Regional_units.Rmd',  
                   output_file =  "Regional_units.html", 
                   output_dir = './documents')
