@@ -404,8 +404,16 @@ I reran the typology with these smoother SDM layers, which should give more real
 This new classification will be used to produce V5 of the typology and compare with V3 as described above.
 
 
+20 September 2021
+As of today the updated (V5) 100m resolution typology has been completed and described unit-by-unit. Text from the descriptions of V3 has been recycled where strong overlap between units was found, however, the improved resolution of the typology has ensured that most pixels of the previous typology are broken into 2 or more ecosystems in the new typology. The overview document and the reports have been updated to describe each unit based on 50% confidence ellipses around pairs of related variables (slope-elevation, melt-precip etc.). I have also found satellite images of nearly every ecosystem using Google Earth Pro. Because of the good resolution, it is clear from satellite photos where the ecosystem delineations are in most cases and it's often possible to tell how they relate to one another (e.g. sunny and shadowed slopes on the same nunatak). Also, I made a glossary of terms which should help clarify and standardise the language used to describe units across the entire typology. I made an effort to improve grammar, capitalisation, etc. throughout the unit descriptions, though another check through would probably be prudent.
 
 
+There are some comments that came up in the elicitation process which have not been addressed properly yet:
 
+1. Inclusion of additional variables: Geology, wind direction, topographic positioning index, albedo, and data on prokaryotes/soil microbiomes have all been brought up. Likely it is not actually feasible to include these.
+
+2. Lakes and geothermal areas have not been superimposed.
+
+3. Need to bring in and cite existing literature wherever possible. This represents likely quite a lot of work, and it's not necessarily obvious which papers would pertain to which units. However, there is probably some value to at least attempting some match-ups. 
 
 
