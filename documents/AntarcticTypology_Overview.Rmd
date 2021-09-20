@@ -1,7 +1,7 @@
 ---
 title: "Antarctic Typology Summary"
 author: "Aniko B Toth"
-date: "25/03/2021"
+date: "17/09/2021"
 output:
   word_document: default
   html_document: default
@@ -62,23 +62,52 @@ data[sample(1:nrow(data), size = 100000),] %>%
 
 ```
 
+To help further contextualize the environmental conditions in each unit, 50% confidence ellipses are plotted for each unit around a selection of variables below:
+
+Terrain
+
+```{r echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
+data %>% filter(!grepl("NA", unit_h, fixed = TRUE)) %>% separate(unit_h, into = c("group", "unit"), sep = "_") %>% ggplot(aes(x = slope, y = elevation, color = unit)) + stat_ellipse(level = 0.50, lwd = 1.5) + facet_wrap(.~group, scales = 'fixed') + theme(legend.position = c(0.8, 0.25)) 
+
+```
+
+Moisture availability (note logged axes)
+
+```{r echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
+
+data %>% filter(!grepl("NA", unit_h, fixed = TRUE)) %>% separate(unit_h, into = c("group", "unit"), sep = "_") %>% ggplot(aes(x = melt, y = totPrecip, color = unit)) + stat_ellipse(level = 0.50, lwd = 1.5) + facet_wrap(.~group, scales = 'fixed') + theme(legend.position = c(0.8, 0.25)) + scale_y_log10() + scale_x_log10()
+
+```
+
+Wind and light conditions
+
+```{r echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
+data %>% filter(!grepl("NA", unit_h, fixed = TRUE)) %>% separate(unit_h, into = c("group", "unit"), sep = "_") %>% ggplot(aes(x = solar, y = wind, color = unit)) + stat_ellipse(level = 0.50, lwd = 1.5) + facet_wrap(.~group, scales = 'fixed') + theme(legend.position = c(0.8, 0.25)) 
+
+```
+
+Cloud and growing season 
+
+```{r echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
+data %>% filter(!grepl("NA", unit_h, fixed = TRUE)) %>% separate(unit_h, into = c("group", "unit"), sep = "_") %>% ggplot(aes(x = cloud, y = DDm5, color = unit)) + stat_ellipse(level = 0.50, lwd = 1.5) + facet_wrap(.~group, scales = 'fixed') + theme(legend.position = c(0.8, 0.3)) + scale_y_log10()
+
+```
 
 Below are more detailed visual overviews of the variable range in each unit, plotted separately for each environmental group. These plots should help give a clearer idea of how the units are distinct from one another. Note that unit-level classification was done on suitability data alone, meaning that the environmental differences among units are likely reflected by differing biotas, even if they are slight. 
 
-### Environmental group 1 (Mid-elevation snowy terrain) variables by unit.
+### Environmental group 1 (Midland mesic ecosystems) variables by unit.
 
 
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typV5 %in% c(1:5)) %>% mutate(ecosystem = as.factor(typV5))
 
 # Full map
-  ggplot() +  
-    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
-                 fill="gray50", color= NA, size=0.25) +
+  ggplot() +
+    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+    coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.1) +
-    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +
-    coord_equal() + labs(x = "x", y = "y")
+    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
@@ -91,19 +120,18 @@ data %>% filter(grepl("env1", unit_h), !grepl("NA", unit_h)) %>%
 
 ```
 
-### Environmental group 2 (Rugged high mountains) variables by unit
+### Environmental group 2 (Rugged high mountain slopes) variables by unit
 
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typV5 %in% c(7:11)) %>% mutate(ecosystem = as.factor(typV5))
 
 # Full map
   ggplot() +  
-    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
-                 fill="gray50", color= NA, size=0.25) +
+    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+    coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.1) +
-    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +
-    coord_equal() + labs(x = "x", y = "y")
+    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
@@ -120,19 +148,18 @@ data %>% filter(grepl("env2", unit_h), !grepl("NA", unit_h)) %>%
 
 
 
-### Environmental group 3 (warm lowlands) variables by unit
+### Environmental group 3 (Mild lowlands) variables by unit
 
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typV5 %in% c(13:19)) %>% mutate(ecosystem = as.factor(typV5))
 
 # Full map
   ggplot() +  
-    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
-                 fill="gray50", color= NA, size=0.25) +
+    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+    coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.1) +
-    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +
-    coord_equal() + labs(x = "x", y = "y")
+    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
@@ -148,19 +175,18 @@ data %>% filter(grepl("env3", unit_h), !grepl("NA", unit_h)) %>%
 ```
 
 
-### Environmental group 4 (Highland sunny outcrops) variables by unit
+### Environmental group 4 (Sunny slopes) variables by unit
 
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typV5 %in% c(21:26)) %>% mutate(ecosystem = as.factor(typV5))
 
 # Full map
   ggplot() +  
-    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
-                 fill="gray50", color= NA, size=0.25) +
+    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) +   
+    coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.1) +
-    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +
-    coord_equal() + labs(x = "x", y = "y")
+    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +labs(x = "x", y = "y")
 ```
 
 
@@ -176,18 +202,18 @@ data %>% filter(grepl("env4", unit_h), !grepl("NA", unit_h)) %>%
 ```
 
 
-### Environmental group 5 (Highland windy outcrops/nunataks) variables by unit
+### Environmental group 5 (Highland windy plateaus) variables by unit
+
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typV5 %in% c(28:32)) %>% mutate(ecosystem = as.factor(typV5))
 
 # Full map
   ggplot() +  
-    geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
-                 fill="gray50", color= NA, size=0.25) +
+    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+    coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.1) +
-    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +
-    coord_equal() + labs(x = "x", y = "y")
+    scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 

@@ -7,6 +7,7 @@ library(rts)
 library(ggfortify)
 library(rgl)
 library(rgeos)
+library(sf)
 
 # Helper functions ####
 source('./scripts/Helper_Functions.R')
@@ -14,11 +15,12 @@ source('./scripts/Helper_Functions.R')
 # Load data ####
 out <- readRDS("./results/out_TYP_hier_units_V5.rds")
 
-biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
-
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
 
+# SDM and environmental data
+smallPix <- readRDS("./data/combined_100m_extract.rds")
+biotic <- smallPix %>% dplyr::select(ends_with(".tif")) %>% names()
 bad_models <- c("adeliae.tif",
                 "Procellariiformes.tif",
                 "Poduromorpha.tif",
@@ -31,11 +33,9 @@ bad_models <- c("adeliae.tif",
 
 good_models <- biotic[!biotic%in% bad_models] 
 
-# SDM and environmental data
-smallPix <- readRDS("./data/combined_100m_extract.rds")
-
 # Antarctica shapefile
-antarctica <- readOGR("../Data/Base", "Antarctic_landpoly") %>% gSimplify(tol = 2, topologyPreserve = TRUE)
+antarctica <- st_read("../Data/Base", "Antarctic_landpoly") %>% 
+  st_simplify(preserveTopology = TRUE, dTolerance = 2)
 
 # Occurrence data
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
@@ -50,12 +50,16 @@ typ_fah <- raster("../Data/Typology/typV5_fa_hier_9v.tif")
 GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
 
 # verbal descriptions
-descr <- read_file("./documents/Unit_descriptions.txt")
+descr <- read_file("./documents/Unit_descriptionsV5.txt")
 descr <- descr %>% strsplit("\r\n\r\n") %>% unlist()
 
 # Format data #####
+typ_df <- out %>% mutate(typV5 = as.factor(unit_h) %>% as.numeric()) %>% 
+  filter(!is.na(consensus2)) %>% 
+  dplyr::select(x, y, unit_h, typV5) %>% tibble()
+
 data <- full_join(out %>% dplyr::select(pixID, unit_h, x, y), smallPix, by = "pixID")
-#data <- data %>% filter(!unit_h %in% c("env1_sdmNA", "env2_sdmNA", "env3_sdmNA", "env4_sdmNA", "env5_sdmNA"))
+
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                              class, order_, family, genus, species) %>% unique()
 occurrences <- occurrences %>% dplyr::select(scientificName, vernacularName, decimalLongitude, decimalLatitude, 
@@ -80,26 +84,25 @@ sppDat <- sppDat %>% filter(!(scientific == "Geomonhystera antarcticola" & !clas
 sppDat <- sppDat %>% filter(!(scientific == "Halteria sp." & !order == "Oligotrichida"))
 sppDat <- sppDat %>% filter(!(scientific == "Lepadella patella" & !family == "Lepadellidae"))
 
-PA <- occ %>% data.frame() %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+# Raw PA table
+PA <- occ %>% data.frame() %>% filter(!is.na(fah)) %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+PA <- PA[,as.character(sort(unique(typ_df$typV5)))] # remove unclassified units
 
 # weed out so only one occurrence per species per cell
 PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typ_fah, occ)) %>% 
   dplyr::select(scientific, cell, fah) %>% distinct() %>%
   reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
+PA_distinct <- PA_distinct[,as.character(sort(unique(typ_df$typV5)))] # remove unclassified units
 
-PArel <- apply(PA, 2, function(x) x/sum(x)) 
-commonspp <- PA[which(rowSums(PA) >10),] %>% apply(1, which.max)
-dom_pct <- 100*(PA[which(rowSums(PA) >10),] %>% apply(1, max)/PA[which(rowSums(PA) >10),] %>% rowSums())
+# relative abundance sampled
+PArel <- apply(PA, 2, function(x) x/sum(x))
 
-#typ <- as(typ_fah, "SpatialPixelsDataFrame")
-#typ_df <- as.data.frame(typ) %>% filter(!typV2_fa_hier_12v %in% c(6, 11, 17, 23, 29))
-typ_df <- out %>% mutate(typV5 = as.factor(unit_h) %>% as.numeric()) %>% 
-  filter(!is.na(consensus2)) %>% 
-  dplyr::select(x, y, unit_h, typV5) %>% tibble()
-  
+# PA of common species 
+PA_common <- PA[which(rowSums(PA) > 10),]
+commonspp <- names(PA)[apply(PA_common, 1, which.max)]
+dom_pct <- 100*(apply(PA_common, 1, max)/rowSums(PA_common))
 
 rm(out, smallPix)
-detach("package:raster", unload = TRUE)
 
 sppLat <- GBIF_clean %>% group_by(species) %>% summarise(minLat = min(decimallatitude), maxLat = max(decimallatitude))
 restricted_spp <- sppLat$species[which(sppLat$maxLat < -50)]
@@ -115,54 +118,44 @@ singletons <- rownames(PA)[which(rowSums(PA) == 1)]
 doubletons <- rownames(PA)[which(rowSums(PA) == 2)]
 
 faunas <- lapply(PA, function(x) rownames(PA)[which(x > 0)])
-#sapply(faunas, function(x) length(which(x %in% singletons)))
-#sapply(faunas, function(x) length(which(x %in% doubletons)))
+sapply(faunas, function(x) length(which(x %in% singletons)))
+sapply(faunas, function(x) length(which(x %in% doubletons)))
 
-commonPA <-PA[rowSums(PA) > 20,]
-apply(commonPA, 1, which.max)
+
+apply(PA_common, 1, which.max)
 
 ## Endemicity
 spp_list <- rownames(PA)
 
-#ecodat <- data %>% #select(-all_of(bad_models)) %>% 
-#  pivot_longer(cols = all_of(c(abiotic, good_models)))
-bio_key <- data.frame(variable = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
-                                                   "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
-                                                   "algae Green", "lichens Cladonid", "Cyanobacteria","mosses Dicranales",
-                                                   "Springtails slim", "mosses Grimmiales", "mosses Hypnales (feather)",
-                                                   "lichens Lecanorid", "lichens Lecideacid",  "Liverworts",
-                                                   "mites Mesostigmata ", "Nematodes", "Algae", "penguins Gentoo",
-                                                   "lichens Parmelid", "lichens Physcid (shadow)", "springtails round",
-                                                   "mosses Polytrichales", "mosses Pottiales", "Petrels", "lichens Rhizocarpid",
-                                                   "Rotifers", "mites Sarcoptiformes", "lichens Stereocaulid", "Tardigrades",
-                                                   "lichens Teloschistid", "mites Trombidiformes", "lichens Umbilicarid"))
+ecodat <- data %>% dplyr::select(-all_of(bad_models)) %>% 
+  pivot_longer(cols = all_of(c(abiotic, good_models)))
+bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
+                                               "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
+                                               "algae Green", "lichens Cladonid", "Cyanobacteria","mosses Dicranales",
+                                               "Springtails slim", "mosses Grimmiales", "mosses Hypnales (feather)",
+                                               "lichens Lecanorid", "lichens Lecideacid",  "Liverworts",
+                                               "mites Mesostigmata ", "Nematodes", "Algae", "penguins Gentoo",
+                                               "lichens Parmelid", "lichens Physcid (shadow)", "springtails round",
+                                               "mosses Polytrichales", "mosses Pottiales", "Petrels", "lichens Rhizocarpid",
+                                               "Rotifers", "mites Sarcoptiformes", "lichens Stereocaulid", "Tardigrades",
+                                               "lichens Teloschistid", "mites Trombidiformes", "lichens Umbilicarid"))
 
-#ecodat <- ecodat %>% left_join(bio_key)
+ecodat <- ecodat %>% left_join(bio_key)
 
 ## raw elevations ###
-# elev <- raster("../Data/Abiotic_layers/REMA_100m_dem_geoid.tif")
-# pixels <- SpatialPointsDataFrame(coords = typ_df[,c("x", "y")], data = typ_df, proj4string = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
-# elev_extract <- raster::extract(elev, pixels)
-# elevations <- data.frame(pixels) %>% 
-#   dplyr::select(typV2_fa_hier_12v, x, y) %>% 
-#   mutate(raw_elev = elev_extract)
-# elev_table <- elevations %>% group_by(typV2_fa_hier_12v) %>% 
-#   summarise(min = min(raw_elev), 
-#             max = max(raw_elev), 
-#             mean = mean(raw_elev), 
-#             lower_90 = quantile(raw_elev, 0.05), 
-#             upper_90 = quantile(raw_elev, 0.95))
-
+elev_table <- ecodat %>% filter(name == "elevation", !grepl(unit_h, pattern = "NA")) %>%
+  group_by(unit_h) %>%  summarise(min = min(value), 
+                                  max = max(value), 
+                                  mean = mean(value), 
+                                  lower_90 = quantile(value, 0.05), 
+                                  upper_90 = quantile(value, 0.95))
 #### Generate reports ####
 
 count <- 0
-for(i in sort(unique(typ_df$typV5))[1:2]) {
+for(i in sort(unique(typ_df$typV5))[3:5]) {
   count <- count + 1
   unitname <- sort(unique(data$unit_h))[i]
   unit <- typ_df %>% dplyr::filter(typV5 == i) %>% mutate(ecosystem = as.factor(typV5))
-  ecodat <- data %>% filter(unit_h == unitname) %>% 
-    select(-all_of(bad_models)) %>%
-    pivot_longer(cols = all_of(c(abiotic, good_models)))
   rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
                     output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".docx", sep=''), 
                     output_dir = './documents/reports/short_doc')
@@ -208,7 +201,7 @@ acbrs <- data.frame(pixels) %>%
   dplyr::select(typV2_fa_hier_12v, x, y) %>% 
   mutate(ACBR_ID = acbrs_extract) %>% 
   merge(spatialUnits %>% dplyr::select(ACBR_ID, ACBR_Name) %>% 
-                                              distinct(), by = "ACBR_ID")
+          distinct(), by = "ACBR_ID")
 
 #### for each RU, find ID of neighbouring pixels
 acbrs$RU_raw <- paste(acbrs$ACBR_Name, acbrs$typV2_fa_hier_12v, sep = "_")
