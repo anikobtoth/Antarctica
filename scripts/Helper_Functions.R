@@ -69,7 +69,7 @@ dist2edgelist <- function(z, sppDat){  #edge list with link types attached
 }
 
 ## process tables into text format
-df2txt <- function(df, threshold = 0.5, name = "variable"){
+df2txt <- function(df, threshold = 0.5, name = "name"){
   if(threshold > 0) vars <- df[df$mean_diff > threshold, name] %>% unlist() %>% as.character() 
   if(threshold < 0) vars <- df[df$mean_diff < threshold, name] %>% unlist() %>% as.character() 
   
@@ -106,7 +106,7 @@ factor_analysis <- function(dat, mincomp = 0.35){
 # classifies unclassified pixels in column "var" with nearest neighbour
 classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 1000){
   library(fields)
- 
+  
   v0 <- dat %>% filter(is.na({{ var }})) 
   v2 <- dat %>% filter(!is.na({{ var }}))
   
@@ -118,7 +118,7 @@ classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 1000){
     temp <- data.frame(x = v0$x, y = v0$y, temp) %>% filter(dist < maxdist)
     message(paste("Classifying", nrow(temp), "unclassified pixels."))
     dat[paste(temp$x, temp$y, sep = "_"),][[as.character(enquo(var))[2]]] <- temp[[as.character(enquo(var))[2]]]
-    }
+  }
   
   return(dat)
 }
@@ -176,7 +176,7 @@ simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
       
       #simpairs
       for (k in max(0, ovl):a){
-       
+        
         k <- as.bigz(k)
         
         A <- factorial(occsj)/(factorial(k)*factorial(occsj-k))
@@ -201,11 +201,11 @@ FETmP <- function(contable){
   #out <- parRapply(cl, contable, function(x) {x <- as.numeric(x)
   #return(FETmP_(x[3], x[4], x[5], x[6]))})
   #stopCluster(cl)
- 
+  
   out <- apply(contable, 1, function(x) {x <- as.numeric(x)
- return(FETmP_(x[3], x[4], x[5], x[6]))})
+  return(FETmP_(x[3], x[4], x[5], x[6]))})
   return(out)
-
+  
 }
 
 FETmP_ <- function(presSp1, presSp2, presBoth, samples){
@@ -223,8 +223,8 @@ cmeans_multi <- function(dat, weights=1, centres = 8, iter = 1000, reps = 100){
   clusterEvalQ(cl, library(e1071))
   
   sdm_hcl <- parLapply(cl, 1:reps, function(x) cmeans(dat, centers = centres, iter.max = iter, 
-                                                     verbose = FALSE, dist = "euclidean", method = "ufcl", 
-                                                     m = 2, rate.par = 0.3, weights = weights$weight))
+                                                      verbose = FALSE, dist = "euclidean", method = "ufcl", 
+                                                      m = 2, rate.par = 0.3, weights = weights$weight))
   stopCluster(cl)
   return(sdm_hcl)
 }
@@ -330,8 +330,8 @@ gg_color_hue <- function(n) {
 
 map_mosaic <- function(df.grids){
   
-  width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
-  height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
+  width <- df.grids %>% sapply(function(x) return(x["xmax"]-x["xmin"]))
+  height <- df.grids %>% sapply(function(x) return(x["ymax"]-x["ymin"]))
   aspect <- width/height
   
   l <- length(height)
@@ -339,35 +339,35 @@ map_mosaic <- function(df.grids){
   aspect <- aspect[o]
   height <- height[o]
   width  <-  width[o]
- 
+  
   nrows <<- (sum(aspect)/2.6) %>% round() 
   if(nrows == 0) nrows <<- 1
   if(nrows > 1) {
     newlines <- combn(x = 1:(l-1), m = nrows-1)
-  
-  f <- list()
-  aspdiff <- numeric()
-  widdiff <- numeric()
-  for(i in 1:ncol(newlines)) {
-    f[[i]] <- rep(letters[1:length(newlines[,i])], c(newlines[1,i], diff(newlines[,i])))
-    f[[i]] <- c(f[[i]], rep("z", length(aspect)- length(f[[i]]))) %>% as.factor()
-    aspdiff[i] <- split(aspect, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
-    widdiff[i] <- split(width, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
-  }
-  fac <- f[[#((widdiff %>% abs() %>% scale()) + 
-              (aspdiff %>% abs() %>% scale())#) 
-              %>% which.min()]]
-  #fac <- f[[(aspdiff %>% scale() %>% abs()) %>% which.min()]]
-  
- # cmd <- map2(split(paste0("plot", o), fac) %>% lapply(paste, collapse = ","), 
- #     split(width, fac) %>% lapply(paste, collapse = ","), 
- #     function(x, y) paste0("plot_grid(", x, ", rel_widths = c(", y, "), nrow = 1)")) %>% 
- #  paste(collapse = ", ")
-  cmd <- split(paste0("plot", o), fac) %>% lapply(paste, collapse = "+") %>% paste(" + plot_annotation(theme = theme(plot.margin = unit(c(0, 0, 0, 0), 'cm'))) + plot_layout(nrow = 1)", collapse = ") / (")
-  }else{
-      #cmd <- paste0(paste0("plot", o, collapse = ",") %>% paste0(", rel_widths = c(", paste0(width, collapse = ","), ")"))
-       cmd <- paste0(paste0("plot", o, collapse = "+"))
+    
+    f <- list()
+    aspdiff <- numeric()
+    widdiff <- numeric()
+    for(i in 1:ncol(newlines)) {
+      f[[i]] <- rep(letters[1:length(newlines[,i])], c(newlines[1,i], diff(newlines[,i])))
+      f[[i]] <- c(f[[i]], rep("z", length(aspect)- length(f[[i]]))) %>% as.factor()
+      aspdiff[i] <- split(aspect, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
+      widdiff[i] <- split(width, f[[i]]) %>% sapply(sum) %>% diff() %>% abs() %>% sum()
     }
+    fac <- f[[#((widdiff %>% abs() %>% scale()) + 
+      (aspdiff %>% abs() %>% scale())#) 
+      %>% which.min()]]
+    #fac <- f[[(aspdiff %>% scale() %>% abs()) %>% which.min()]]
+    
+    # cmd <- map2(split(paste0("plot", o), fac) %>% lapply(paste, collapse = ","), 
+    #     split(width, fac) %>% lapply(paste, collapse = ","), 
+    #     function(x, y) paste0("plot_grid(", x, ", rel_widths = c(", y, "), nrow = 1)")) %>% 
+    #  paste(collapse = ", ")
+    cmd <- split(paste0("plot", o), fac) %>% lapply(paste, collapse = "+") %>% paste(" + plot_annotation(theme = theme(plot.margin = unit(c(0, 0, 0, 0), 'cm'))) + plot_layout(nrow = 1)", collapse = ") / (")
+  }else{
+    #cmd <- paste0(paste0("plot", o, collapse = ",") %>% paste0(", rel_widths = c(", paste0(width, collapse = ","), ")"))
+    cmd <- paste0(paste0("plot", o, collapse = "+"))
+  }
   #plotcmd <- paste0("plot_grid(", cmd, ", nrow = ", nrows, ")")
   plotcmd <- paste0("(", cmd, ")")
   return(plotcmd)
@@ -378,25 +378,25 @@ map_mosaic <- function(df.grids){
 geo_bounds <- function(df, buff = 0.1){
   bufferx <- diff(range(df$x))*buff
   buffery <- diff(range(df$y))*buff
-  ext <- c(left = min(df$x) - bufferx, 
-             right = max(df$x) + bufferx,
-             bottom = min(df$y) - buffery,
-             top = max(df$y) + buffery)
+  ext <- c(xmin = min(df$x) - bufferx, 
+           xmax = max(df$x) + bufferx,
+           ymin = min(df$y) - buffery,
+           ymax = max(df$y) + buffery)
   return(ext)
 }
 
 df_crop <- function(df, ext, buff = 5){
-  df %>% filter(x >= ext["left"]-buff, 
-                x <= ext["right"] + buff, 
-                y >= ext["bottom"] - buff, 
-                y <= ext["top"]+ buff) %>% 
+  df %>% filter(x >= ext["xmin"]-buff, 
+                x <= ext["xmax"] + buff, 
+                y >= ext["ymin"] - buff, 
+                y <= ext["ymax"]+ buff) %>% 
     return()
 }
 
 aspect_ratio <- function(df){
   rangex <- diff(range(df$x))
   rangey <- diff(range(df$y))
-
+  
   return(rangex/rangey)
 }
 
