@@ -103,6 +103,20 @@ writeRaster(unitsV4, filename = "../Data/Typology/typV5_fa_hier_9v",
 
 detach("package:raster", unload = TRUE)
 
+## make rasters for each supergroup
+for(i in 1:5){
+  print(i)
+  outi <- out %>% filter(consensus == i)
+  units <- raster(xmn = -2700100, xmx = 2600100, ymn = -2200100, ymx = 2100100,
+                    crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
+                    nrows = 43002, ncols = 53002)
+  units[cellFromXY(units, cbind(outi$x, outi$y))] <- outi$consensus2
+  
+  writeRaster(units, filename = paste0("../Data/Typology/typV5_fa_hier_Env", i), 
+              format = "GTiff", overwrite = TRUE)
+  
+}
+
 ### make unit rasters (hierarchical fa) ####
 unitname <- unique(out$unit_h)
 for(i in seq_along(unitname)){
