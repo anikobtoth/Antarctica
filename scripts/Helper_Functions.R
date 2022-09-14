@@ -82,6 +82,32 @@ df2txt <- function(df, threshold = 0.5, name = "name"){
   if(length(vars) > 2) return(paste(vars[1:(length(vars)-1)], collapse = ", ") %>% paste("and", vars[length(vars)]))
 }
 
+
+# Functions to assist with penguin rookery size calculations
+rm_outliers <- function(data){
+  outliers <- boxplot(data, plot = FALSE)$out
+  data_no_outlier <- data[-which(data %in% outliers)]
+  return(data_no_outlier)
+}
+
+adjust_count <- function(data){
+  data %>% log() %>% rm_outliers() %>% exp()
+}
+
+BP_translate <- function(nests, adults, chicks, ratios){
+  nests[which(nests == 0)] <- NA
+  chicks[which(chicks == 0)] <- NA
+  adults[which(adults == 0)] <- NA
+  
+  BP <- nests
+  BP <- ifelse(is.na(BP), chicks/ratios["cn"], BP)
+  BP <- ifelse(is.na(BP), adults/ratios["an"], BP)
+  
+  return(BP)
+  
+}
+
+
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
 factor_analysis <- function(dat, mincomp = 0.35){
