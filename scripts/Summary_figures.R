@@ -1,6 +1,8 @@
 library(ggplot2)
 library(viridis)
 library(dplyr)
+library(readr)
+library(stringr)
 
 ## Summary of unit areas distribution in ACBRs
   # ovl_area <- read_csv("../Data/Base/IFA_Unit_areas.txt")
@@ -15,16 +17,16 @@ library(dplyr)
 ovl_area <- read_csv("../Data/Base/IFA_Unit_areas_V5.txt") # generated using TabulateAreas() in arcGIS
 ACBR_key <- readRDS("./data/ACBR_key.rds")
 area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "ACBR", values_to = "area") %>% 
-  select(-Rowid_) %>% mutate(ACBR = as.numeric(word(ACBR, 2,2, "_")), 
+  dplyr::select(-Rowid_) %>% mutate(ACBR = as.numeric(word(ACBR, 2,2, "_")), 
                              area = area/1000000) %>%
   left_join(ACBR_key, by = c("ACBR" = "ACBR_ID")) %>% 
   left_join(out %>% pull(unit_h) %>% unique() %>% sort() %>% 
               data.frame(VALUE = 1:33) %>% setNames(c("unit", "VALUE")), by = "VALUE") %>%
-  mutate(env = word(unit, 1, 1, sep = "_"))
+  mutate(env = word(unit, 1, 1, sep = "_") %>% str_replace("env", "E"))
 
  ggplot(area_summary, aes(x = VALUE, fill = as.factor(env), y = area)) + geom_col() + 
    facet_wrap(~ACBR_Name, scales = "free") + scale_fill_viridis(discrete = TRUE) + 
-   labs(fill = "Environmental group", y = "Area (square km)", x = "Ecosystem") + 
+   labs(fill = "Domain", y = "Area (square km)", x = "Biotic assemblage") + 
    theme(legend.position = c(0.85, 0.1))
 
 
@@ -34,7 +36,7 @@ area_summary %>% filter(!grepl("sdmNA", unit, fixed = TRUE)) %>%
   group_by(env, VALUE) %>% summarise(area = sum(area)) %>%
   ggplot(aes(x = VALUE, fill = as.factor(env), y = area)) + geom_col() + 
     scale_fill_viridis(discrete = TRUE) + 
-    labs(fill = "Group", y = "Area (square km)", x = "Ecosystem")
+    labs(fill = "Domain", y = "Area (square km)", x = "Biotic assemblage")
 
 
 ## endemics 
