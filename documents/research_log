@@ -429,6 +429,50 @@ I uploaded the current/updated version of the typology manuscript to the google 
 
 
 
+7 Sept 2022
+
+Return from maternity leave on 22 August. Working 0.4 FTE.
+In first week, I redid the regional classification with the high-res typology. This is now waiting for approval by other group members.
+
+In second week I worked over the manuscript, accepting edits, updating figures and adding/updating tables. The MS looks pretty good now, and it's just waiting for finalised appendices and ecosystem overlays including rookeries, lakes, and geothermal areas. Appendices will be as follows: Appendix S1 - Typology Overview, Appendix S2 - Biotic assemblage (ecosystem unit) profiles, Appendix S3: Regional ecosystem subgroups maps.
+
+This is my third week and I've begun to look at the overlay ecosystem types. Here is where we stand:
+
+Rookeries: we have a point dataset of 635 rookeries for the continent (including 62 on Elephant Island, which I think must not be included in the ice free rock layer) and these can be incorporated easily. Of these, 160 are on ice free areas, and 262 are on or within 200m of an ice free area. Need to decide: do we include rookeries that are not on ice free areas (and some not plotting on mapped land at all)? In what radius does the nutrient flux from a rookery influence the biotic assemblage in the area?
+
+Lakes: Howe et al Lake layer not public. Can I be provided with a link to the layer being compiled by AAD? It's ok if it's not fully complete. 
+
+Volcanoes and geothermal areas: Fraser 2014 provides coordinates of 9 volcanoes and 1 non-volcanic geothermal area. Most are easily mappable as they have their own continuous or compound IFA, or are islands. Two are not on ice free areas (do we include?). One site (Royal society range) consists of multiple basaltic vents-- I can see the soil colour difference and little cone shaped vents on satellite and am confident I could make a map of the exact areas where the soil is influenced by the volcanic activity. I think volcanic and geothermal sites should be two different units though. 
+
+Fraser 2014 also maps 7 other active or dormant volcanic sites in Marie Byrd land and Ellsworth Land but doesn't provide their coordinates bcause they were not used in the study. I'd ask for the coordinates but they're pretty easy to see on the IFA raster -- almost all non-coastal IFAs in MB Land and Ellsworth Land are formed by these volcanoes. EDIT: there is a list of Antarctic volcanoes and their coordinates on Wikipedia (https://en.wikipedia.org/wiki/List_of_volcanoes_in_Antarctica). Finally, the book on the topic (Volcanoes of the Antarctic Plate and Southern Ocean) also identifies a large number of inactive volcanoes. This is an interesting one, because I'd imagine that their volcanic history probably still influences the soil/rock properties at these sites but obviously they wouldn't be a source of heat, ash, or gases like the active/dormant sites. 
+
+Finally, there's the question of what to do with rookeries that are ON volcanoes. I would be leaning toward classifying these areas as rookeries since most would be small and nested inside the volcano site. 
 
 
+14 Sept 2022
 
+Following advice from Aleks, I've made the following progress:
+
+PENGUINS
+Rookery data were re-downloaded in their raw form from https://www.penguinmap.com/
+Emperor penguin colonies were removed, as they breed on ice and are thus out of scope. 
+
+The remaining three species' colony observations had measurements in up to three ways: nest count, adult count, or chick count. We wanted to use the size of the colony to help identify how many raster cells should be classed as rookery, so we needed a way to translate between the different types of counts. We calculated the mean ratio of chicks:nests and adults:nests for each species where observations were taken from the same colony in the same year. We then repeated the process but using averages over all observed years for a given colony-- this produced similar values for those that could be cross-validated against the year-resolution method and gave us non-NA values for adult:nest ratios for chinstrap penguins, which could not be calculated for the finer resolution. To calculate a final value for breeding pairs, we equated nest counts with breeding pairs, then used the adult/chick counts divided by the ratios to estimate breeding pairs for sites where there was no nest count available. 
+
+Colony population size thus standardized, we needed to translate the colony's population to a spatial footprint (area in hectares, since each grid square equals one hectare). For this we turned to LaRue et al. (2014), in which a table of penguin colony sizes and spatial extent was published (Table 1). Colony population size has previously been shown to explain over 98% of the variation in colony spatial extent (Woehler & Riddle 1998) in a linear relationship, so we calculated a linear regression and used the formula thus obtained to calculate colony spatial area from the number of breeding pairs. 
+
+These areas will be used to produce a binary raster of penguin rookeries that will be overlaid on the typology. Rookeries under 1 ha will be represented by a single grid cell and larger rookeries will be represented by the appropriate number of grid cells in the nearest ice-free area (algorithm tbd - some locations appear inaccurate). 
+
+VOLCANOES: 
+I have created polygons of all known Antarctic volcanoes that are not sub-glacial, by hand in google earth. 
+These will be clipped to land areas to make their boundaries more accurate for those that are islands. 
+For the purposes of the typology, they will also be clipped to ice-free areas. 
+
+Using published resources we will classify each volcano as active, dormant, or inactive. Only active and dormant volancoes will be included as volcanic areas for the purposes of the typology. Need to check dormant volcanoes and see how long ago they erupted; Aleks thinks that eruptions over ~1000 years ago are no longer relevant for the purposes of an ecosystem typology. 
+
+The Balleny Islands and Elephant island will need to be excluded as these are outside of the extent of the ice-free rock layer or the typology raster.
+
+
+LAKES: 
+Lakes layer was downloaded from https://data.bas.ac.uk/collections/e74543c0-4c4e-4b41-aa33-5bb2f67df389/
+This will likely be used as-is with no subclassifications. 
