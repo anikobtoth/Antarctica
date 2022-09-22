@@ -476,3 +476,32 @@ The Balleny Islands and Elephant island will need to be excluded as these are ou
 LAKES: 
 Lakes layer was downloaded from https://data.bas.ac.uk/collections/e74543c0-4c4e-4b41-aa33-5bb2f67df389/
 This will likely be used as-is with no subclassifications. 
+
+
+21 September 2022
+
+I classified the volcano sites into four categories: 
+
+Volcanic - active volcanoes that have erupted in the past 1000 years, have been observed with fumaroles, or that likely serve as a source of geothermal heat. Mts Terror and Terra Nova were included in the volcanic group despite older activity due to close proximity to Erebus, whose eruption likely had effects on these areas (ash, gasses, etc.).
+Dormant - Older volcanoes that erupted 1ka - 100ka and are likely to be the site of enriched volcanic soils. Also possible sites of glacial refugia due to older activity and thus may have unique biotas. 
+Inactive - Volcano inactive or extinct, too old to have substantial effects on typology. These are to be classified with regular ice free areas.
+Geothermal - A single case of this is the Broknes peninsula which is ice-free due to the radioactive decay of very old rocks. 
+
+Calculated buffer radii for penguin colongies based on estimated area in ha. This was 2*sqrt(area*10000/pi), the multiplication by 2 is to account for colonies that are directly on coastline, thereby placing half their area on the ocean. Colonies over 100k breeding pairs were manually checked/corrected to ensure their footprints overlapped with visible guano stains from satellite footage. Buffer zones were then clipped to land. 
+
+Discovered some misalignment between the ice free layer and the antarctic coast; this could be fixed with a more recent ice free layer that appears to improve the problem in most relevant areas. Main issue is that the biotic layers were clipped to the original IFAs so new areas may not get classified anyway... One partial solution would be to clip the typology to land which may exclude some outcrops but at least won't classify non-land areas???
+
+Next steps: rasterise overlays and use raster calculator to create new typology layer. Volcanoes: INTERACTION with typology, rookeries and lakes will override existing classification or extend the raster data.
+
+
+22 Sept 2022
+
+Decided on how to fix the mis-alignments. I will grab rock outcrop pixels from the new layer that aren't in the old one and use "predict" function to insert them into the typology. This is also handy because the method will allow us to classify any new pixels that become ice-free if needed. 
+
+I will go forward with the UNION of the two ice-free layers thus obtained, which will be clipped strictly to land for the final typology. This approach ensures that all ice-free areas are represented but might result in some areas that aren't truly ice-free being included in the typology. I can quantify what these pixels may be in terms of classification (provide error margins to areas etc.).
+
+Today I started this process and began rasterising my overlay layers. 
+
+
+
+
