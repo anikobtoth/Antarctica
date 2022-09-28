@@ -110,23 +110,40 @@ BP_translate <- function(nests, adults, chicks, ratios){
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
-factor_analysis <- function(dat, mincomp = 0.35){
+factor_analysis <- function(dat, mincomp = 0.35, name){
   message("Choosing number of factors")
   dat <- dat %>% na.omit()
   rn <- rownames(dat)
   dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
-  #dat <- sapply(dat, qnorm) %>% scale()
   
   cvs <- purrr::map(2:ncol(dat), function(x) fa(dat, nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% abs() %>% apply(2, max)) %>% sapply(min)
   nfact <<- 1+ length(which(cvs >=mincomp))
   
   message(paste("Running factor analysis with", nfact, "factors"))  
   fa1 <- fa(dat, nfact, rotate = "varimax" )
+  saveRDS(fa1, paste0("./results/factor_analyses/fa_", name, ".rds"))
+  saveRDS(dat, paste0("./results/factor_analyses/data_", name, ".rds"))
   sc <- data.frame(fa1$scores)
   
   consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)
   
   return(consensus)
+}
+
+# wrapper for predict function that cleans and scales the 
+# input data while saving pixel IDs and then uses input fa object to predict scores
+fapred <- function(data, cols, faobj, olddat){
+ message("formatting data")
+   cldat <- data %>% dplyr::select(pixID, all_of(cols)) %>% na.omit() 
+  pixID <- cldat$pixID
+  cldat <- cldat %>% dplyr::select(-pixID) %>% 
+    sapply(function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% 
+    data.frame()
+ message("calculating predictions") 
+  typ <- predict(faobj, data = cldat, old.data = olddat) %>% 
+    apply(1, which.max) %>% data.frame(pixID, typ = .)
+  
+  return(typ)
 }
 
 # classifies unclassified pixels in column "var" with nearest neighbour
