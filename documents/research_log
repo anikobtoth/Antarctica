@@ -503,5 +503,19 @@ I will go forward with the UNION of the two ice-free layers thus obtained, which
 Today I started this process and began rasterising my overlay layers. 
 
 
+28 September 2022
+
+Spent today updating all of the methods for the overlays in the manuscript, adding citations, etc. 
+
+I also finished rasterizing the three overlays (penguins, volcanoes, and lakes). 
+I combined the two rock outcrop layers and then the volcanoes, penguins, and lakes into a pre-final typology raster. 
+
+Some observations: 
+- many volcanic areas have a tiny rim of non-volcanic pixels around them-- apparently the land clipping was more stringent for the volcanic layer...
+- the automatic rock outcrop layer is missing biotic data in several places that are surrounded by a solid bloc of pixels in the same unit. These should probably be categorised with their neighbours???
+
+
+
+
 
 
