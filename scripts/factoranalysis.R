@@ -9,7 +9,7 @@ source('./scripts/Helper_Functions.R')
 v1 <- readRDS("./data/combined_100m_extract.rds")
 
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
-             "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
+             "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
 
 n <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
 
@@ -106,6 +106,17 @@ for(i in seq_along(unitname)){
   writeRaster(unitsV2, filename = paste0("../Data/Typology/unit_rasters_hierFA/", unitname[i]), 
               format = "GTiff", overwrite = TRUE)
 }
+
+## make raster key ###
+typkey <- out %>% pull(unit_h) %>% unique() %>% sort() %>% 
+  data.frame(VALUE = 1:33) %>% setNames(c("unit", "biotic_assemblage")) %>%
+  mutate(unit = str_replace(unit, "env", "E") %>% str_replace("_sdm", "B"))
+typkey <- rbind(typkey, typkey %>% 
+                        mutate(unit = paste0("G1", unit), 
+                               biotic_assemblage = 200 + biotic_assemblage), 
+                typkey %>% mutate(unit = paste0("G2", unit), 
+                                  biotic_assemblage = 100 + biotic_assemblage), 
+                data.frame(unit = c("G3E3B3", "E3B8", "L"), biotic_assemblage = c(315, 400, 500)))
 
 #####
 ## add pixels from new rock outcrop layer #####

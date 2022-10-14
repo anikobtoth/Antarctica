@@ -3,6 +3,7 @@ library(viridis)
 library(dplyr)
 library(readr)
 library(stringr)
+library(tidyr)
 
 ## Summary of unit areas distribution in ACBRs
   # ovl_area <- read_csv("../Data/Base/IFA_Unit_areas.txt")
@@ -14,29 +15,36 @@ library(stringr)
   #   theme(legend.position = c(0.85, 0.1))
 
 ## Summary of unit areas distribution in ACBRs V5
-ovl_area <- read_csv("../Data/Base/IFA_Unit_areas_V5.txt") # generated using TabulateAreas() in arcGIS
+ovl_area <- read_csv("../Data/Base/typV6_acbr_unit_areas.txt") # generated using TabulateAreas() in arcGIS
 ACBR_key <- readRDS("./data/ACBR_key.rds")
-area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "ACBR", values_to = "area") %>% 
-  dplyr::select(-Rowid_) %>% mutate(ACBR = as.numeric(word(ACBR, 2,2, "_")), 
+area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "biotic_assemblage", values_to = "area") %>% 
+  dplyr::select(-Rowid_) %>% mutate(biotic_assemblage = as.numeric(word(biotic_assemblage, 2,2, "_")), 
                              area = area/1000000) %>%
-  left_join(ACBR_key, by = c("ACBR" = "ACBR_ID")) %>% 
-  left_join(out %>% pull(unit_h) %>% unique() %>% sort() %>% 
-              data.frame(VALUE = 1:33) %>% setNames(c("unit", "VALUE")), by = "VALUE") %>%
-  mutate(env = word(unit, 1, 1, sep = "_") %>% str_replace("env", "E"))
+  left_join(ACBR_key, by = c("VALUE" = "ACBR_ID")) %>% 
+  left_join(typkey, by = c("biotic_assemblage")) %>%
+  mutate(plot_unit = ifelse(biotic_assemblage < 100, unit, 
+                            ifelse(biotic_assemblage < 200, "G2", 
+                                   ifelse(biotic_assemblage < 300, "G1", unit))), 
+         env = str_sub(unit, 1,2)) %>%
+  na.omit()
+  
+  
 
- ggplot(area_summary, aes(x = VALUE, fill = as.factor(env), y = area)) + geom_col() + 
-   facet_wrap(~ACBR_Name, scales = "free") + scale_fill_viridis(discrete = TRUE) + 
-   labs(fill = "Domain", y = "Area (square km)", x = "Biotic assemblage") + 
-   theme(legend.position = c(0.85, 0.1))
-
-
+ ggplot(area_summary, aes(x = plot_unit, fill = as.factor(env), y = area)) + 
+   geom_col() + facet_wrap(~ACBR_Name, scales = "free", ncol = 3) + 
+   scale_fill_manual(values = c(viridis(5), "darkred", "tomato3", "pink", "dodgerblue" )) + 
+   labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") + 
+   theme(axis.text.x = element_blank(), 
+         panel.grid.minor = element_blank(), 
+         panel.grid.major.x = element_blank())
 
 ## summary of unit areas overall
-area_summary %>% filter(!grepl("sdmNA", unit, fixed = TRUE)) %>% 
-  group_by(env, VALUE) %>% summarise(area = sum(area)) %>%
-  ggplot(aes(x = VALUE, fill = as.factor(env), y = area)) + geom_col() + 
-    scale_fill_viridis(discrete = TRUE) + 
-    labs(fill = "Domain", y = "Area (square km)", x = "Biotic assemblage")
+area_summary %>% filter(!grepl("BNA", unit, fixed = TRUE)) %>% 
+  group_by(env, plot_unit) %>% summarise(area = sum(area)) %>%
+  ggplot(aes(x = plot_unit, fill = as.factor(env), y = area)) + geom_col() + 
+  scale_fill_manual(values = c(viridis(5), "darkred", "tomato3", "pink", "dodgerblue" )) + 
+  labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") +
+  theme(axis.text.x  = element_text(angle = 45))
 
 
 ## endemics 
