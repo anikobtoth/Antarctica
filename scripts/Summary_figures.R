@@ -46,6 +46,19 @@ area_summary %>% filter(!grepl("BNA", unit, fixed = TRUE)) %>%
   labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") +
   theme(axis.text.x  = element_text(angle = 45))
 
+# summary of geothermal units
+area_summary %>% filter(!grepl("BNA", unit, fixed = TRUE)) %>% 
+  filter(env %in% c("G1", "G2", "G3")) %>%
+  group_by(env, unit) %>% summarise(area = sum(area)) %>%
+  ggplot(aes(x = unit, fill = as.factor(str_sub(unit, 3,4)), y = area)) + geom_col() + 
+  scale_fill_manual(values = c(viridis(5))) +
+  facet_grid(~env, scales = "free", space = "free")+
+  labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") +
+  theme(axis.text.x  = element_text(angle = 90), 
+        panel.grid.minor = element_blank(), 
+        panel.grid.major.x = element_blank()) +
+  scale_y_log10()
+
 
 ## endemics 
 PA01 <- tobinary.single(PA)
