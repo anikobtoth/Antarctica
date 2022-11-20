@@ -39,7 +39,7 @@ good_models <- n[!n%in% bad_models]
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
 pdat <- data.frame(na.omit(v1 %>% select(pixID, contains("coords"), all_of(abiotic))) %>% 
                      select(pixID, contains("coords")), 
-                   consensus = factor_analysis(cldat, mincomp = 0.3, name = "L1"))
+                   consensus = factor_analysis(cldat, mincomp = 0.45, name = "L1"))
  
 #combine results
 v1 <- full_join(pdat, v1)
@@ -57,8 +57,8 @@ v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("con
 v1 <- v1 %>% split(.$consensus) %>% purrr::map(classify_by_neighbours, consensus2, maxdist = 3, res = 100) %>% bind_rows()
 
 ##### Create output rasters ###############
-out <- v1 %>% select(-all_of(n), -all_of(abiotic), -ModT, -aspect, -DDm5) %>% 
-  mutate(unit_h = paste0("env", consensus, "_sdm", consensus2)
+out <- v1 %>% select(-all_of(good_models), -all_of(abiotic)) %>% 
+  mutate(unit_h = paste0("E", consensus, "B", consensus2)
          #unit_d = paste0("env", consensus, "_sdm", V1), 
          #unit_r = paste0("sdm", V1, "_env", consensusA2)
          )
@@ -72,13 +72,24 @@ library(raster)
 #                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
 #                   nrows = 4195, ncols = 5246)
 
-unitsV5 <- raster(xmn = -2700100, xmx = 2600100, ymn = -2200100, ymx = 2100100,
-                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
-                  nrows = 43002, ncols = 53002)
-unitsV5[cellFromXY(unitsV5, cbind(out$x, out$y))] <- out$unit_h %>% as.factor() %>% as.numeric()
+#unitsV5 <- raster(xmn = -2700100, xmx = 2600100, ymn = -2200100, ymx = 2100100,
+#                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
+#                  nrows = 43002, ncols = 53002)
 
-writeRaster(unitsV5, filename = "../Data/Typology/typV5_fa_hier_9v", 
-            format = "GTiff", overwrite = TRUE)
+unitsV6 <- raster(xmn = -2661766, xmx = 2614634, ymn = -2490071, ymx = 2321829,
+                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
+                  resolution = 100) %>% setValues(NA) %>%
+  writeRaster(filename = "../Data/Typology/typ_V6_faHier_10v.tif")
+
+cells <- cellFromXY(unitsV6, cbind(out$x, out$y))
+values <- out$unit_h %>% as.factor() %>% as.numeric()
+
+unitsV6 <- update(unitsV6, cell = cells, v = values)
+
+#unitsV6[cellFromXY(unitsV6, cbind(out$x, out$y))] <- out$unit_h %>% as.factor() %>% as.numeric()
+
+#writeRaster(unitsV6, filename = "../Data/Typology/typV6_faHier_10v", 
+#            format = "GTiff", overwrite = TRUE)
 
 detach("package:raster", unload = TRUE)
 
