@@ -1,5 +1,5 @@
+library(plyr)
 library(tidyverse)
-#library(reshape2)
 library(rgdal)
 library(sp)
 library(cowplot)
@@ -13,14 +13,14 @@ library(sf)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
-out <- readRDS("./results/out_TYP_hier_units_V5.rds")
+out <- readRDS("./results/out_TYPV6.rds")
 
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
-             "elevation", "rugosity", "slope", "totPrecip", "solar")  #don't include ModT, aspect, DDm5
+             "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
 
 # SDM and environmental data
-smallPix <- readRDS("./data/combined_100m_extract.rds")
-biotic <- smallPix %>% dplyr::select(ends_with(".tif")) %>% names()
+biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
+
 bad_models <- c("adeliae.tif",
                 "Procellariiformes.tif",
                 "Poduromorpha.tif",
@@ -44,21 +44,31 @@ occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
 # Unit raster
 library(raster)
-typ_fah <- raster("../Data/Typology/typV5_fa_hier_9v.tif")
+typ_fah <- raster("../Data/Typology/typv6_v1pl")
 
 # GBIF occurrence data
 GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
 
 # verbal descriptions
-descr <- read_file("./documents/Unit_descriptionsV5.txt")
-descr <- descr %>% strsplit("\r\n\r\n") %>% unlist()
+descr <- read_csv("./documents/Unit_descriptionsV6.csv")
+descr <- descr %>% filter(!grepl(pattern = "E[1-5]$", Code))
 
 # Format data #####
-typ_df <- out %>% mutate(typV5 = as.factor(unit_h) %>% as.numeric()) %>% 
-  filter(!is.na(consensus2)) %>% 
-  dplyr::select(x, y, unit_h, typV5) %>% tibble()
+key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>% 
+  dplyr::select(unit_h, typV6) %>% distinct() %>% tibble() %>%
+  rbind(data.frame(unit_h = c("G1", "G2", "G3", "E3B8", "L"), 
+                   typV6 = c(100, 200, 300, 400, 500)))
 
-data <- full_join(out %>% dplyr::select(pixID, unit_h, x, y), smallPix, by = "pixID")
+data <- readRDS("./results/ecodatV6_abio.rds")
+# typ_df <- left_join(rasterToPoints(typ_fah) %>% data.frame(), key, by = c("typv6_v1pl" = "typV6"))  %>% 
+#   mutate(xR = round_any(x, 50),
+#   yR = round_any(y, 50))
+# 
+# abio <- extract_env_dat(typ_df[,c("x","y")])
+# data <- full_join(typ_df, abio, by = c("x", "y")) %>% dplyr::select(-rock, -modT)
+#bio <- extract_biotic_dat(typ_df[,c("x","y")], good_models)
+
+
 
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                              class, order_, family, genus, species) %>% unique()
@@ -86,13 +96,13 @@ sppDat <- sppDat %>% filter(!(scientific == "Lepadella patella" & !family == "Le
 
 # Raw PA table
 PA <- occ %>% data.frame() %>% filter(!is.na(fah)) %>% reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
-PA <- PA[,as.character(sort(unique(typ_df$typV5)))] # remove unclassified units
+PA <- PA[,as.character(sort(unique(data$typv6_v1pl)))] # remove unclassified units
 
 # weed out so only one occurrence per species per cell
 PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typ_fah, occ)) %>% 
   dplyr::select(scientific, cell, fah) %>% distinct() %>%
   reshape2::dcast(scientific~fah, fun.aggregate = length) %>% namerows()
-PA_distinct <- PA_distinct[,as.character(sort(unique(typ_df$typV5)))] # remove unclassified units
+PA_distinct <- PA_distinct[,as.character(sort(unique(data$typv6_v1pl)))] # remove unclassified units
 
 # relative abundance sampled
 PArel <- apply(PA, 2, function(x) x/sum(x))
@@ -101,8 +111,6 @@ PArel <- apply(PA, 2, function(x) x/sum(x))
 PA_common <- PA[which(rowSums(PA) > 10),]
 commonspp <- names(PA)[apply(PA_common, 1, which.max)]
 dom_pct <- 100*(apply(PA_common, 1, max)/rowSums(PA_common))
-
-rm(out, smallPix)
 
 sppLat <- GBIF_clean %>% group_by(species) %>% summarise(minLat = min(decimallatitude), maxLat = max(decimallatitude))
 restricted_spp <- sppLat$species[which(sppLat$maxLat < -50)]
@@ -127,7 +135,7 @@ apply(PA_common, 1, which.max)
 ## Endemicity
 spp_list <- rownames(PA)
 
-ecodat <- data %>% dplyr::select(-all_of(bad_models)) %>% 
+ecodat <- data %>% dplyr::select(-all_of(bad_models), -aspect) %>% 
   pivot_longer(cols = all_of(c(abiotic, good_models)))
 bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
                                                "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
@@ -143,21 +151,23 @@ bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguin
 ecodat <- ecodat %>% left_join(bio_key)
 
 ## raw elevations ###
-elev_table <- ecodat %>% filter(name == "elevation", !grepl(unit_h, pattern = "NA")) %>%
-  group_by(unit_h) %>%  summarise(min = min(value), 
-                                  max = max(value), 
-                                  mean = mean(value), 
-                                  lower_90 = quantile(value, 0.05), 
-                                  upper_90 = quantile(value, 0.95))
+elev_table <- ecodat %>% filter(name == "elevation") %>%
+  group_by(unit_h) %>% summarise(min = min(value, na.rm = T), 
+                                  max = max(value, na.rm = T), 
+                                  mean = mean(value, na.rm = T), 
+                                  lower_90 = quantile(value, 0.05, na.rm = T), 
+                                  upper_90 = quantile(value, 0.95, na.rm = T))
 #### Generate reports ####
-
+units <- data %>% dplyr::select(typv6_v1pl, unit_h) %>% distinct() %>% arrange(typv6_v1pl)
+typv6 <- units %>% pull(typv6_v1pl)
+unitnames <- units %>% pull(unit_h)
 count <- 0
-for(i in sort(unique(typ_df$typV5))[3:5]) {
+for(i in typv6) {
   count <- count + 1
-  unitname <- sort(unique(data$unit_h))[i]
-  unit <- typ_df %>% dplyr::filter(typV5 == i) %>% mutate(ecosystem = as.factor(typV5))
+  unitname <- unitnames[i]
+  unit <- data %>% dplyr::filter(typv6_v1pl == i) 
   rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
-                    output_file =  paste("report_", sort(unique(data$unit_h))[i], '_', Sys.Date(), ".docx", sep=''), 
+                    output_file =  paste("report_", unitnames[i], '_', Sys.Date(), ".docx", sep=''), 
                     output_dir = './documents/reports/short_doc')
   
   

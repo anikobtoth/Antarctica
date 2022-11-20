@@ -24,9 +24,9 @@ library(flextable)
 
 ```
 
-## Ecosystem `r descr[count] %>% word(1,1, sep = fixed("."))`
-
-`r descr[count]`
+## Ecosystem `r (descr %>% pull(Code))[count] `
+### `r descr[count,] %>% pull(Name)`
+`r descr[count,] %>% pull(Description)`
 
 ### Photos (if available)
 
@@ -47,6 +47,8 @@ for(i in seq_along(pictures)){
 
 ### Distribution
 
+`r descr[count,] %>% pull(Distribution)`
+
 Maps - Full map
 
 ```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
@@ -55,7 +57,7 @@ Maps - Full map
     geom_polygon(data=antarctica, aes(x=long, y=lat, group=group), 
                  fill="gray50", color= NA, size=0.25) +
      geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
-    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.5) +
+    geom_tile(data=unit, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.5) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
     coord_equal() + labs(x = "x", y = "y")
 ```
@@ -88,7 +90,7 @@ Smaller maps
   })
   
   subplots <- map2(subplots, units, function(x, y){
-    p <- x + geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
+    p <- x + geom_tile(data = y, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = .8) +
       scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() 
     return(p)
   })
@@ -326,7 +328,7 @@ if(nrow(doubl_table) > 0){
 
 -->
 
-```{r calculate biotic means, message=FALSE, warning=FALSE, include=FALSE}
+```{r calculate biotic means, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 
   unit_cont <- ecodat %>% filter(variable %in% good_models) %>% group_by(taxon) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
@@ -374,7 +376,7 @@ The table below shows the difference in the mean values of all suitability varia
 
 Distinctiveness of the unit from the environmental group and the rest of Antarctica 
  
-```{r fig.height=12, fig.width=9, echo=FALSE, message=FALSE, warning=FALSE}
+```{r eval=FALSE, fig.height=12, fig.width=9, message=FALSE, warning=FALSE, include=FALSE}
 ggplot(ecodat %>% filter(variable %in% good_models), aes(y = value, x = f, fill = f)) + 
   geom_boxplot() + facet_wrap(.~taxon, scales = "free") + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
 

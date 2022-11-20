@@ -24,9 +24,9 @@ library(flextable)
 
 ```
 
-## Ecosystem `r descr[count] %>% word(1,1, sep = fixed("."))`
-
-`r descr[count]`
+## Ecosystem `r descr[count,] %>% pull(Code)`
+#### `r descr[count,] %>% pull(Name)`
+`r descr[count,] %>% pull(Description)`
 
 ### Photos (if available)
 
@@ -48,14 +48,16 @@ for(i in seq_along(pictures)){
 
 ### Distribution
 
+`r descr[count,] %>% pull(Distribution)`
+
 Maps - Full map
 
 ```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
  # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + coord_sf(datum = st_crs(3031)) +
-     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4) +
-    geom_tile(data=unit, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = 1.5) +
+     geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4) +
+    geom_tile(data=unit, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.5) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
     labs(x = "x", y = "y")
 ```
@@ -71,13 +73,13 @@ Regional maps
   #width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
   #height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
   ant_crops <- df.grids %>% lapply(function(x) st_crop(antarctica, x))
-  bgr_unit_crops <- df.grids %>% lapply(function(x) df_crop(typ_df, x))
+  bgr_unit_crops <- df.grids %>% lapply(function(x) df_crop(data, x))
   
   subplots <- map2(ant_crops, bgr_unit_crops, function(x,y){
     p <- ggplot() +  
       geom_sf(data = x, fill="gray50", color= NA, size=0.25) + coord_sf(datum = st_crs(3031)) +
       geom_tile(data = y, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
-      #geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .8) +
+      #geom_tile(data = y, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = .8) +
       #scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() +
       theme(legend.position = "none", 
             plot.margin = unit(c(0,0,0,0), "cm"), 
@@ -88,7 +90,7 @@ Regional maps
   })
   
   subplots <- map2(subplots, units, function(x, y){
-    p <- x + geom_tile(data = y, aes(x=x, y=y, col= ecosystem, fill = ecosystem), lwd = .6) +
+    p <- x + geom_tile(data = y, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = .6) +
       scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D"))
     return(p)
   })
@@ -100,11 +102,14 @@ Regional maps
   plotcmd <- map_mosaic(df.grids)
  
 
+rm(ant_crops, bgr_unit_crops)
 ```
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*5, fig.width = 12}
  eval(parse(text = plotcmd))
+detach(subplots)
+rm(subplots)
 ```
 
 
@@ -136,15 +141,15 @@ The elevation of unit `r unitname` ranges from `r round(elev_table$min[count])` 
 
 The unit is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
 
-#### Distinctiveness of the unit from its group and the rest of Antarctica
+#### Distinctiveness of the assemblage from its group and the rest of Antarctica
 
 ```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE}
 ecodat$f <- "continent"
-ecodat$f[grepl(pattern = word(unitname, 1,1, "_"), ecodat$unit_h)] <- "group"
-ecodat$f[ecodat$unit_h == unitname] <- "unit"
+ecodat$f[grepl(pattern = word(unitname, 1,1, "B"), ecodat$unit_h)] <- "env. unit"
+ecodat$f[ecodat$unit_h == unitname] <- "assemblage"
 
 ggplot(ecodat %>% filter(name %in% abiotic), aes(y = value, x = f, fill = f)) + 
-  geom_boxplot(outlier.size = 0.2) + facet_wrap(.~name, scales = "free_y") + labs(x = "Abiotic group", fill = "Abiotic group")
+  geom_boxplot(outlier.size = 0.2) + facet_wrap(.~name, scales = "free_y") + labs(x = "Category", fill = "Category")
 
 ```
 
@@ -173,7 +178,7 @@ flextable(most_widespread_species) %>%
 ```
 
 
-```{r calculate biotic means, message=FALSE, warning=FALSE, include=FALSE}
+```{r calculate biotic means, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 
   unit_cont <- ecodat %>% filter(name %in% good_models) %>% group_by(taxon) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
@@ -205,7 +210,7 @@ and lower in suitability for `r df2txt(unit_envgr, -0.3, "taxon")` than the rest
 
 Distinctiveness of the unit from the environmental group and the rest of Antarctica 
  
-```{r fig.height=12, fig.width=9, echo=FALSE, message=FALSE, warning=FALSE}
+```{r eval=FALSE, fig.height=12, fig.width=9, message=FALSE, warning=FALSE, include=FALSE}
 ggplot(ecodat %>% filter(name %in% good_models), aes(y = value, x = f, fill = f)) + 
   geom_boxplot() + facet_wrap(.~taxon, scales = "free") + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
 
