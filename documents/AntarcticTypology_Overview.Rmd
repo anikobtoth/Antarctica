@@ -1,7 +1,5 @@
 ---
 title: "Antarctic Typology Summary"
-author: "Aniko B Toth"
-date: "17/09/2021"
 output:
   word_document: default
   html_document: default
