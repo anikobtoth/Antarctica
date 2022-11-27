@@ -1,6 +1,5 @@
 ---
 title: "Ecosystem Description"
-author: "Aniko B. Toth"
 output:
   word_document: default
   html_document: default
@@ -54,9 +53,7 @@ Maps - Full map
 
 ```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
  # Full map
-  ggplot() +  
-    geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + coord_sf(datum = st_crs(3031)) +
-     geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4) +
+  basemap +
     geom_tile(data=unit, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.5) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
     labs(x = "x", y = "y")
@@ -123,12 +120,12 @@ The unit `r unitname` is part of the environmental supergroup `r word(unitname, 
             medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
 
  envgr_cont <- ecodat %>% filter(name %in% abiotic) %>% group_by(name) %>% 
-   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
-               mean(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T), 
-             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
-               median(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
+   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
+               mean(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T), 
+             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
+               median(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
  
-  unit_envgr <- ecodat %>% filter(name %in% abiotic & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(name) %>% 
+  unit_envgr <- ecodat %>% filter(name %in% abiotic & grepl(pattern = word(unitname, 1,1, "B"), unit_h)) %>% group_by(name) %>% 
     summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
               medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
 

@@ -59,15 +59,16 @@ key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>%
   rbind(data.frame(unit_h = c("G1", "G2", "G3", "E3B8", "L"), 
                    typV6 = c(100, 200, 300, 400, 500)))
 
-data <- readRDS("./results/ecodatV6_abio.rds")
 # typ_df <- left_join(rasterToPoints(typ_fah) %>% data.frame(), key, by = c("typv6_v1pl" = "typV6"))  %>% 
 #   mutate(xR = round_any(x, 50),
 #   yR = round_any(y, 50))
 # 
 # abio <- extract_env_dat(typ_df[,c("x","y")])
 # data <- full_join(typ_df, abio, by = c("x", "y")) %>% dplyr::select(-rock, -modT)
-#bio <- extract_biotic_dat(typ_df[,c("x","y")], good_models)
+# bio <- extract_biotic_dat(typ_df[,c("x","y")], good_models)
+# data <- full_join(data, bio, by = c("x", "y"))
 
+data <- readRDS("./results/ecodatV6.rds")
 
 
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
@@ -105,12 +106,12 @@ PA_distinct <- occ %>% data.frame() %>% mutate(cell = cellFromXY(typ_fah, occ)) 
 PA_distinct <- PA_distinct[,as.character(sort(unique(data$typv6_v1pl)))] # remove unclassified units
 
 # relative abundance sampled
-PArel <- apply(PA, 2, function(x) x/sum(x))
+#PArel <- apply(PA, 2, function(x) x/sum(x))
 
 # PA of common species 
-PA_common <- PA[which(rowSums(PA) > 10),]
-commonspp <- names(PA)[apply(PA_common, 1, which.max)]
-dom_pct <- 100*(apply(PA_common, 1, max)/rowSums(PA_common))
+# PA_common <- PA[which(rowSums(PA) > 10),]
+# commonspp <- names(PA)[apply(PA_common, 1, which.max)]
+# dom_pct <- 100*(apply(PA_common, 1, max)/rowSums(PA_common))
 
 sppLat <- GBIF_clean %>% group_by(species) %>% summarise(minLat = min(decimallatitude), maxLat = max(decimallatitude))
 restricted_spp <- sppLat$species[which(sppLat$maxLat < -50)]
@@ -118,25 +119,24 @@ restricted_spp <- c(restricted_spp, sppDat$scientific[which(!sppDat$scientific %
 
 # Plots ####
 
-ecosummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(abiotic) , ~ mean(.x, na.rm = TRUE)))
-sdmsummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(good_models), ~ mean(.x, na.rm = TRUE)))
+#ecosummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(abiotic) , ~ mean(.x, na.rm = TRUE)))
+#sdmsummary <- data %>% group_by(unit_h) %>% summarise(across(all_of(good_models), ~ mean(.x, na.rm = TRUE)))
 
 
-singletons <- rownames(PA)[which(rowSums(PA) == 1)]
-doubletons <- rownames(PA)[which(rowSums(PA) == 2)]
+#singletons <- rownames(PA)[which(rowSums(PA) == 1)]
+#doubletons <- rownames(PA)[which(rowSums(PA) == 2)]
 
-faunas <- lapply(PA, function(x) rownames(PA)[which(x > 0)])
-sapply(faunas, function(x) length(which(x %in% singletons)))
-sapply(faunas, function(x) length(which(x %in% doubletons)))
+#faunas <- lapply(PA, function(x) rownames(PA)[which(x > 0)])
+#sapply(faunas, function(x) length(which(x %in% singletons)))
+#sapply(faunas, function(x) length(which(x %in% doubletons)))
 
 
-apply(PA_common, 1, which.max)
+#apply(PA_common, 1, which.max)
 
 ## Endemicity
 spp_list <- rownames(PA)
 
-ecodat <- data %>% dplyr::select(-all_of(bad_models), -aspect) %>% 
-  pivot_longer(cols = all_of(c(abiotic, good_models)))
+ecodat <- data %>% pivot_longer(cols = all_of(c(abiotic, good_models)))
 bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
                                                "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
                                                "algae Green", "lichens Cladonid", "Cyanobacteria","mosses Dicranales",
@@ -157,6 +157,13 @@ elev_table <- ecodat %>% filter(name == "elevation") %>%
                                   mean = mean(value, na.rm = T), 
                                   lower_90 = quantile(value, 0.05, na.rm = T), 
                                   upper_90 = quantile(value, 0.95, na.rm = T))
+
+#### Antarctica basemap ####
+basemap <- ggplot() +  
+  geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+  coord_sf(datum = st_crs(3031)) +
+  geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4)
+
 #### Generate reports ####
 units <- data %>% dplyr::select(typv6_v1pl, unit_h) %>% distinct() %>% arrange(typv6_v1pl)
 typv6 <- units %>% pull(typv6_v1pl)
