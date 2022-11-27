@@ -112,20 +112,20 @@ rm(subplots)
 
 ### Environment
 
-The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "_")`.
+The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "B")`.
 
 ```{r calculate abiotic means, message=FALSE, warning=FALSE, include=FALSE}
- unit_cont <- ecodat %>% filter(name %in% abiotic) %>% group_by(name) %>% 
+ unit_cont <- ecodatAb %>% filter(name %in% abiotic) %>% group_by(name) %>% 
   summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
             medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
 
- envgr_cont <- ecodat %>% filter(name %in% abiotic) %>% group_by(name) %>% 
+ envgr_cont <- ecodatAb %>% filter(name %in% abiotic) %>% group_by(name) %>% 
    summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
                mean(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T), 
              medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
                median(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
  
-  unit_envgr <- ecodat %>% filter(name %in% abiotic & grepl(pattern = word(unitname, 1,1, "B"), unit_h)) %>% group_by(name) %>% 
+  unit_envgr <- ecodatAb %>% filter(name %in% abiotic & grepl(pattern = word(unitname, 1,1, "B"), unit_h)) %>% group_by(name) %>% 
     summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
               medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
 
@@ -141,11 +141,11 @@ The unit is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_e
 #### Distinctiveness of the assemblage from its group and the rest of Antarctica
 
 ```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE}
-ecodat$f <- "continent"
-ecodat$f[grepl(pattern = word(unitname, 1,1, "B"), ecodat$unit_h)] <- "env. unit"
-ecodat$f[ecodat$unit_h == unitname] <- "assemblage"
+ecodatAb$f <- "continent"
+ecodatAb$f[grepl(pattern = word(unitname, 1,1, "B"), ecodatAb$unit_h)] <- "env. unit"
+ecodatAb$f[ecodatAb$unit_h == unitname] <- "assemblage"
 
-ggplot(ecodat %>% filter(name %in% abiotic), aes(y = value, x = f, fill = f)) + 
+ggplot(ecodatAb %>% filter(name %in% abiotic), aes(y = value, x = f, fill = f)) + 
   geom_boxplot(outlier.size = 0.2) + facet_wrap(.~name, scales = "free_y") + labs(x = "Category", fill = "Category")
 
 ```

@@ -171,7 +171,7 @@ unitnames <- units %>% pull(unit_h)
 count <- 0
 for(i in typv6) {
   count <- count + 1
-  unitname <- unitnames[i]
+  unitname <- unitnames[count]
   unit <- data %>% dplyr::filter(typv6_v1pl == i) 
   rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
                     output_file =  paste("report_", unitnames[i], '_', Sys.Date(), ".docx", sep=''), 
