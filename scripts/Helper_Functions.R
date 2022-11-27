@@ -107,6 +107,31 @@ BP_translate <- function(nests, adults, chicks, ratios){
   
 }
 
+##### DATA EXTRACTION ####
+# Extract abiotic data
+extract_env_dat <- function(xy){
+  abiotic <- c("cloud", "wind", "meanTemp", "melt", "modT", "aspect", "elevation", "rock", "rugosity", "slope", "solar", "DDm5", "totPrecip")
+  l <- list.files("../Data/Abiotic_Layers", ".tif$", full.names = T)
+  layers <- purrr::map(l, raster) %>% setNames(abiotic)
+  
+  abiotic_data <- purrr::map(layers, ~raster::extract(.x, xy))
+  abiotic_data <- cbind(xy, reduce(abiotic_data, data.frame) %>% 
+                          set_names(abiotic)) %>% tibble()
+  return(abiotic_data)
+}
+# Extract biotic suitability data
+extract_biotic_dat <- function(xy, good_models){
+  l <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = T)
+  l <- l[list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = F) %in% good_models]
+  layers <- raster::stack(l) 
+  projection(layers) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m
++no_defs"
+  
+  biotic_data <- raster::extract(layers, xy)
+  biotic_data <- cbind(xy, data.frame(biotic_data) %>% set_names(good_models)) %>% 
+    tibble()
+  return(biotic_data)
+}
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings

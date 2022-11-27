@@ -12,38 +12,12 @@ library(tidyverse)
 pix <- readOGR("../Data/Abiotic_Layers/Points_100m", "centroids_100m_union")
 
 # environmental data ####
-extract_env_dat <- function(xy){
-  abiotic <- c("cloud", "wind", "meanTemp", "melt", "modT", "aspect", "elevation", "rock", "rugosity", "slope", "solar", "DDm5", "totPrecip")
-  l <- list.files("../Data/Abiotic_Layers", ".tif$", full.names = T)
-  layers <- purrr::map(l, raster) %>% setNames(abiotic)
-  
-  abiotic_data <- purrr::map(layers, ~raster::extract(.x, xy))
-  abiotic_data <- cbind(xy, reduce(abiotic_data, data.frame) %>% 
-                          set_names(abiotic)) %>% tibble()
-  return(abiotic_data)
-}
-
 abiotic_data <- extract_env_dat(coordinates(pix))
 saveRDS(abiotic_data, "./data/abiotic_100m_extract_union.rds", compress = T)
 
 # SDM data ####
-extract_biotic_dat <- function(xy, good_models){
-  biotic <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = F)
-  l <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = T)
-  l <- l[list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = F) %in% good_models]
-  layers <- raster::stack(l) 
-  projection(layers) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m
-+no_defs"
-  
-  biotic_data <- raster::extract(layers, xy)
-  biotic_data <- cbind(xy, data.frame(biotic_data) %>% set_names(biotic)) %>% 
-    tibble()
-  return(biotic_data)
-}
-
 biotic_data <- extract_biotic_dat(coordinates(pix), good_models)
 saveRDS(biotic_data, "./data/biotic_100m_extract_union.rds", compress = T)
-
 
 ## combine ####
 lls <- spTransform(pix, CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")) %>% 
