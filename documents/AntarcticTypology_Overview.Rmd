@@ -50,12 +50,10 @@ Below is a visual overview of the classification of environmental groups. Each p
 
 
 ```{r overview_boxplots, echo=FALSE, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
-data[sample(1:nrow(data), size = 400000),] %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% 
+ecodatAb %>% slice(sample(1:nrow(.), 20000000)) %>%
   separate(unit_h, into = c("group", "unit"), sep = "B") %>% 
    mutate(unit = ifelse(group %in% c("G1", "G2", "G3", "L"), group, unit), 
           group = ifelse(group %in% c("G1", "G2", "G3", "L"), "G and L", group)) %>%
-  pivot_longer(all_of(abiotic)) %>% 
   ggplot( aes(x = group, y = value, fill = group)) + geom_boxplot(outlier.size = 0.2) + 
   facet_wrap(~name, scales = "free_y") + 
   labs(fill = "Environmental group", x = "Environmental Group")
@@ -69,7 +67,7 @@ Terrain
 ```{r terrain, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
 col12 <- c(gg_color_hue(7), "sienna1", "purple", "slateblue", "pink1", "steelblue1")
 
-ellipse_data <- data %>% #filter(!grepl("NA", unit_h, fixed = TRUE)) %>% 
+ellipse_data <- data %>% 
   separate(unit_h, into = c("group", "unit"), sep = "B") %>% 
    mutate(unit = ifelse(group %in% c("G1", "G2", "G3", "L"), group, unit), 
           group = ifelse(group %in% c("G1", "G2", "G3", "L"), "G and L", group))
@@ -119,49 +117,47 @@ Below are more detailed visual overviews of the variable range in each unit, plo
 
 
 ```{r E1map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(1:4))
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(1:4))
 
 # Full map
   ggplot() +
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 ```{r E1box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("E1", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
+ecodatAb %>% filter(grepl("E1", unit_h)) %>% 
   ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-# data %>% filter(grepl("E1", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("E1", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
 ### Environmental group 2 (Rugged high mountain slopes) variables by unit
 
 ```{r E2map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(6:11)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(6:11)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r E2box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("E2", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
+ecodatAb %>% filter(grepl("E2", unit_h)) %>% 
   ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-#data %>% filter(grepl("E2", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("E2", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
@@ -171,13 +167,13 @@ data %>% filter(grepl("E2", unit_h), !grepl("NA", unit_h)) %>%
 ### Environmental group 3 (Mild lowlands) variables by unit
 
 ```{r E3map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_manual(values = c(viridis(7), "red")) + 
     scale_color_manual(values = c(viridis(7), "red")) + labs(x = "x", y = "y") 
@@ -186,12 +182,11 @@ group <- data %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
 
 
 ```{r E3box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("E3", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,   scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-#data %>% filter(grepl("E3", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E3", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("E3", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
@@ -200,25 +195,24 @@ data %>% filter(grepl("E3", unit_h), !grepl("NA", unit_h)) %>%
 ### Environmental group 4 (Sunny slopes) variables by unit
 
 ```{r E4map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(21:25)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(21:25)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) +   
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +labs(x = "x", y = "y")
 ```
 
 
 ```{r E4box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("E4", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,   scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-#data %>% filter(grepl("E4", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E4", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("E4", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
@@ -227,25 +221,24 @@ data %>% filter(grepl("E4", unit_h), !grepl("NA", unit_h)) %>%
 ### Environmental group 5 (Highland windy plateaus) variables by unit
 
 ```{r E5map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(27:32)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(27:32)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r E5box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("E5", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,   scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-#data %>% filter(grepl("E5", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E5", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("E5", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
@@ -253,25 +246,24 @@ data %>% filter(grepl("E5", unit_h), !grepl("NA", unit_h)) %>%
 ### Geothermal Areas and Lakes 
 
 ```{r GLmap, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- data %>% dplyr::filter(typv6_v1pl %in% c(100, 200, 300, 500)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(100, 200, 300, 500)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
-    geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
+    geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
     geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r GLbox, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-data %>% filter(grepl("G|L", unit_h), !grepl("NA", unit_h)) %>% 
-  dplyr::select(unit_h, all_of(abiotic)) %>% pivot_longer(all_of(abiotic)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,   scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
-#data %>% filter(grepl("G|L", unit_h), !grepl("NA", unit_h)) %>% 
-#  dplyr::select(unit_h, all_of(good_models)) %>% pivot_longer(all_of(good_models)) %>% 
-#  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, #  scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("G|L", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+
+ecodatBi %>% filter(grepl("G|L", unit_h)) %>% 
+  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
