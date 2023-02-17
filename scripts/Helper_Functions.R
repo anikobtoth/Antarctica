@@ -69,9 +69,15 @@ dist2edgelist <- function(z, sppDat){  #edge list with link types attached
 }
 
 ## process tables into text format
-df2txt <- function(df, threshold = 0.5, name = "name"){
-  if(threshold > 0) vars <- df[df$mean_diff > threshold, name] %>% unlist() %>% as.character() 
-  if(threshold < 0) vars <- df[df$mean_diff < threshold, name] %>% unlist() %>% as.character() 
+df2txt <- function(df, threshold = 1.25, name = "name", type = c("a", "b")){
+  if(type == 'a'){
+    if(threshold > 1) vars <- df[df$envgr_cont > threshold, name] %>% unlist() %>% as.character()
+    if(threshold < 1)vars <- df[df$envgr_cont < threshold, name] %>% unlist() %>% as.character()
+  }
+  if(type == 'b'){
+    if(threshold > 1) vars <- df[df$unit_envgr > threshold, name] %>% unlist() %>% as.character()
+    if(threshold < 1)vars <- df[df$unit_envgr < threshold, name] %>% unlist() %>% as.character()
+  }
   
   #clean var names
   vars <- vars %>% str_replace_all("_", " ") %>% trimws() %>% str_replace_all(" ", "_")
@@ -191,158 +197,6 @@ classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 1000){
   return(dat)
 }
 
-# FETmP
-simpairs <- function(x){ #simpairs function, simpairs only out
-  samples = ncol(x)  #S
-  z = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
-  occs = array()
-  
-  #convert to P/A. Occs = rowsums of PA matrix.
-  x <- x/x
-  x[is.na(x)] <- 0
-  occs <- rowSums(x)
-  
-  #SimPairs Algorithm
-  for (i in 2:nrow(x))  {
-    for (j in 1:(i-1))
-    {
-      a = length(which(x[i,] > 0 & x[j,] > 0)) # B
-      
-      #simpairs
-      for (k in 0:a)
-        z[i,j] = z[i,j] + choose(occs[j] , k) * choose(samples - occs[j] , occs[i] - k) / choose(samples , occs[i])
-      z[i,j] = z[i,j] - choose(occs[j] , a) * choose(samples - occs[j] , occs[i] - a) / choose(samples , occs[i]) / 2
-      if(z[i,j] == 1) z[i,j] <- 0.99999999999999994 # solve rounding issue.
-      z[i,j] = qnorm(z[i,j])
-      z[j,i] = z[i,j]
-    }
-  }
-  print("check")
-  return(as.dist(z, diag = F, upper = F))
-}
-
-
-simpairs_lgnum <- function(x){ #simpairs function, simpairs only out
-  samples = ncol(x) %>% as.bigz()  #S
-  z = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
-  occs = array()
-  
-  #convert to P/A. Occs = rowsums of PA matrix.
-  x <- x/x
-  x[is.na(x)] <- 0
-  occs <- rowSums(x)
-  
-  #SimPairs Algorithm
-  for (i in 2:nrow(x))  {
-    for (j in 1:(i-1))
-    {
-      a = length(which(x[i,] > 0 & x[j,] > 0)) # B
-      
-      occsi <- as.bigz(occs[i])
-      occsj <- as.bigz(occs[j])
-      ovl <- occs[i] + occs[j] - ncol(x)
-      
-      #simpairs
-      for (k in max(0, ovl):a){
-        
-        k <- as.bigz(k)
-        
-        A <- factorial(occsj)/(factorial(k)*factorial(occsj-k))
-        B <- factorial(samples - occsj)/(factorial(occsi - k)*factorial(samples - occsj - occsi + k))
-        C <- factorial(samples)/(factorial(occsi)*factorial(samples-occsi))
-        p <- exp(log.bigz(A)+log.bigz(B)-log.bigz(C))
-        z[i,j] <- z[i,j]+ p
-      }
-      z[i,j] <- z[i,j]-p/2
-      
-      z[j,i] = z[i,j]
-    }
-  }
-  print("check")
-  return(as.dist(z, diag = F, upper = F))
-}
-
-FETmP <- function(contable){
-  #cl <- makeCluster(detectCores()-2)
-  #clusterExport(cl, c("contable", "FETmP_"))
-  #clusterEvalQ(cl, library(tidyverse))
-  #out <- parRapply(cl, contable, function(x) {x <- as.numeric(x)
-  #return(FETmP_(x[3], x[4], x[5], x[6]))})
-  #stopCluster(cl)
-  
-  out <- apply(contable, 1, function(x) {x <- as.numeric(x)
-  return(FETmP_(x[3], x[4], x[5], x[6]))})
-  return(out)
-  
-}
-
-FETmP_ <- function(presSp1, presSp2, presBoth, samples){
-  absSp2 <- samples-presSp2
-  minovl <- max(presSp1+presSp2-samples,0)
-  p <- choose(presSp2, minovl:presBoth) * choose(absSp2, presSp1-minovl:presBoth)/choose(samples, presSp1)
-  
-  return(sum(p)-0.5*last(p))
-}
-
-
-cmeans_multi <- function(dat, weights=1, centres = 8, iter = 1000, reps = 100){
-  cl <- makeCluster(detectCores()-2)
-  clusterExport(cl, c("dat", "weights", "centres", "iter"), envir=environment())
-  clusterEvalQ(cl, library(e1071))
-  
-  sdm_hcl <- parLapply(cl, 1:reps, function(x) cmeans(dat, centers = centres, iter.max = iter, 
-                                                      verbose = FALSE, dist = "euclidean", method = "ufcl", 
-                                                      m = 2, rate.par = 0.3, weights = weights$weight))
-  stopCluster(cl)
-  return(sdm_hcl)
-}
-
-network_analysis <- function(x, threshold = 0.8){
-  pairs <- simpairs(x)
-  el <- dist2edgelist(pairs, x)
-  g <- el %>% #dplyr::filter(Z.Score > quantile(Z.Score, threshold, na.rm = T)) %>% 
-    graph_from_data_frame(directed = F)
-  g <- delete_edges(g, E(g)[which(E(g)$Z.Score < quantile(E(g)$Z.Score, threshold, na.rm = T))])
-  clust <- cluster_fast_greedy(g) #weights = E(g)$Z.Score)
-  plot(g, vertex.label = NA, vertex.size = 6, vertex.color = clust$membership)
-  return(list(g, clust))
-}
-
-cont_table <- function(x){ #simpairs function, simpairs only out
-  samples = ncol(x)  #S
-  a = matrix(nrow=nrow(x),ncol=nrow(x),data=0)
-  occs = array()
-  
-  #Calculate overlap
-  for (i in 2:nrow(x))  {
-    for (j in 1:(i-1))
-    {
-      a[i,j] = length(which(x[i,] > 0 & x[j,] > 0)) # B
-    }
-  }
-  
-  a <- as.dist(a, diag = F, upper = F)
-  
-  l <- dist2edgelist(a, x)
-  s <- rowSums(x) %>% data.frame()
-  
-  t <- merge(l, s, by.x = "Sp1", by.y = 0)
-  t <- merge(t, s, by.x = "Sp2", by.y = 0)
-  t <- t %>% select(Sp1, Sp2, ..x, ..y, Z.Score)
-  t$samples <- ncol(x)
-  names(t) <- c("Sp1", "Sp2", "presSp1", "presSp2", "presBoth", "samples")
-  t$absSp1 <- t$samples - t$presSp1
-  t$absSp2 <- t$samples - t$presSp2
-  
-  #t$presSp1absSp2 <- t$presSp1- t$presBoth
-  #t$presSp2absSp1 <- t$presSp2- t$presBoth
-  
-  #t$absBoth <- t$samples - t$presBoth - t$presSp1absSp2 - t$presSp2absSp1
-  
-  return(t)
-}
-
-
 #### Extract sites of species #
 
 getSites2 <- function(species, PA, type = "count"){
@@ -377,19 +231,6 @@ getGroups <- function(groups, species){
 
 
 ####### PLOTTING ############
-
-plotnet_ <- function(g, title) {
-  pal <- brewer.pal(length(unique(V(g)$cluster)),"Accent")
-  plot.igraph(g, vertex.label = NA, vertex.size = 5, vertex.color = pal[V(g)$cluster], main = title)
-  legend("topleft", legend = levels(as.factor(V(g)$cluster)),pt.cex = 2, fill = pal)
-  box()
-}
-
-plotnet <- function(g, mod, title){
-  V(g)$cluster <- as.factor(mod$membership)
-  plotnet_(g, title)
-}
-
 
 gg_color_hue <- function(n) {
   hues = seq(15, 375, length = n + 1)
