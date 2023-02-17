@@ -13,23 +13,9 @@ abiotic <- c("cloud", "wind", "meanTemp", "melt",
 
 n <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
 
-# bad_models <- c("Chordata_Aves_Sphenisciformes_Spheniscidae_Pygoscelis_adeliae",
-#                 "Chordata_Aves_Procellariiformes___",
-#                 "Arthropoda_Entognatha_Poduromorpha___",
-#                 "Bryophyta_Bryopsida_Grimmiales___",
-#                 "Cyanobacteria_____",
-#                 "Tardigrada_____",
-#                 "Marchantiophyta_____",
-#                 "Ascomycota_Lecanoromycetes_Lecanorales_Lecideaceae__",
-#                 "Ascomycota_Lecanoromycetes_Umbilicariales_Umbilicariaceae__")
-bad_models <- c("adeliae.tif",
-                "Procellariiformes.tif",
-                "Poduromorpha.tif",
-                "Grimmiales.tif",
-                "Cyanobacteria.tif",
-                "Tardigrada.tif",
-                "Marchantiophyta.tif",
-                "Lecideaceae.tif",
+
+bad_models <- c("adeliae.tif","Procellariiformes.tif","Poduromorpha.tif", "Grimmiales.tif",
+                "Cyanobacteria.tif", "Tardigrada.tif","Marchantiophyta.tif","Lecideaceae.tif",
                 "Umbilicariaceae.tif")
 
 good_models <- n[!n%in% bad_models] 
@@ -119,8 +105,8 @@ for(i in seq_along(unitname)){
 }
 
 ## make raster key ###
-typkey <- out %>% pull(unit_h) %>% unique() %>% sort() %>% 
-  data.frame(VALUE = 1:33) %>% setNames(c("unit", "biotic_assemblage")) %>%
+typkey <- out %>% filter(!grepl("NA", unit_h)) %>% pull(unit_h) %>% unique() %>% sort() %>% 
+  data.frame(VALUE = 1:28) %>% setNames(c("unit", "biotic_assemblage")) %>%
   mutate(unit = str_replace(unit, "env", "E") %>% str_replace("_sdm", "B"))
 typkey <- rbind(typkey, typkey %>% 
                         mutate(unit = paste0("G1", unit), 
