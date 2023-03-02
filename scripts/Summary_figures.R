@@ -15,39 +15,44 @@ library(tidyr)
   #   theme(legend.position = c(0.85, 0.1))
 
 ## Summary of unit areas distribution in ACBRs V5
-ovl_area <- read_csv("../Data/Base/typV6_v2pl_areas.txt") # generated using TabulateAreas() in arcGIS
+ovl_area <- read_csv("../Data/Base/typV6_v1pl_areas.txt") # generated using TabulateAreas() in arcGIS
 ACBR_key <- readRDS("./data/ACBR_key.rds")
-area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "biotic_assemblage", values_to = "area") %>% 
-  dplyr::select(-Rowid_) %>% mutate(biotic_assemblage = as.numeric(word(biotic_assemblage, 2,2, "_")), 
+habitats <- read_csv("./documents/Unit_descriptionsV6.csv") %>% 
+  select(-Distribution, -Description) %>% 
+  filter(!is.na(Gridcode))
+
+area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = "area") %>% 
+  dplyr::select(-Rowid_) %>% mutate(habitat = as.numeric(word(habitat, 2,2, "_")), 
                                     area = area/1000000) %>%
   left_join(ACBR_key, by = c("ACBR_NAME" = "ACBR_Name")) %>% 
-  mutate(super_unit = (biotic_assemblage %/% 100)*100, 
-         biotic_assemblage = biotic_assemblage%%100) %>%
-  left_join(units, by = c("biotic_assemblage" = "typv6_v1pl")) %>%
-  left_join(units %>% setNames(c("code", "superunit")), by = c("super_unit" = "code")) %>%
-  mutate(plot_unit = unit_h) %>%
-  mutate(plot_unit = ifelse(super_unit == 400, "E3B8", plot_unit), 
-         plot_unit = ifelse(super_unit == 500, "L", plot_unit), 
-         env = str_sub(plot_unit, 1,2)) %>%
+  mutate(super_unit = (habitat %/% 100)*100, 
+         T2 = habitat%%100, 
+         habitat = ifelse(super_unit>0, super_unit, habitat)) %>%
+  left_join(habitats, by = c("habitat" = "Gridcode")) %>%
+  mutate(plot_unit = LCODE) %>%
+  mutate(env = str_sub(LCODE, 1,2)) %>%
+  mutate(env = ifelse(env %in% c("G1", "G2", "G3"), "G", env)) %>%
   filter(area > 0)
   
   
 
- ggplot(area_summary, aes(x = plot_unit, fill = as.factor(env), y = area)) + 
+ ggplot(area_summary %>% filter(ACBR_NAME != "South Orkney Islands"), aes(x = LCODE, fill = as.factor(env), y = area)) + 
    geom_col() + facet_wrap(~ACBR_NAME, scales = "free", ncol = 3) + 
-   scale_fill_manual(values = c(viridis(5), "darkred", "tomato3", "pink", "dodgerblue" )) + 
-   labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") + 
+   scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
+                     labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
+   labs(fill = "Unit", y = "Area (square km)", x = "Habitat") + 
    theme(axis.text.x = element_blank(), 
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
 
 ## summary of unit areas overall
-area_summary %>% #filter(!grepl("BNA", unit, fixed = TRUE)) %>% 
-  group_by(env, plot_unit) %>% summarise(area = sum(area)) %>%
-  ggplot(aes(x = plot_unit, fill = as.factor(env), y = area)) + geom_col() + 
-  scale_fill_manual(values = c(viridis(5), "darkred", "tomato3", "pink", "dodgerblue" )) + 
-  labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") +
-  theme(axis.text.x  = element_text(angle = 45, hjust = 1))
+area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+  group_by(env, LCODE, Name) %>% summarise(area = sum(area)) %>%
+  ggplot(aes(x = LCODE, fill = as.factor(env), y = area)) + geom_col() + 
+  scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
+                    labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
+  labs(fill = "Unit", y = "Area (square km)", x = "Habitat") +
+  theme(axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
 # summary of geothermal units
 area_summary %>% filter(super_unit %in% c(100, 200, 300)) %>% 
