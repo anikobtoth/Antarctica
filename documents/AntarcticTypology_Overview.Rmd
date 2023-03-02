@@ -28,16 +28,15 @@ This candidate ecosystem typology for Antarctica was created for the purposes of
 
 ### Approach
 
-The typology was created using factor analysis, which is similar to a principal components analysis, but with more flexibility allowing for unique variance in the measured variables. Factor analysis looks for latent variables that account for shared variance among the measured variables. This approach was chosen because it is very straightforward and deterministic. While many more sophisticated clustering algorithms exist, most require some form of randomisation meaning that the results will be different (often significantly) between different runs. This is particularly true for Antarctic data, which does not exibit any clear-cut groupings. Furthermore, because Antarctica is understudied and its overall biogeography has received minimal attention, very little data exists that could be used to validate any clustering scheme, making it nearly impossible to choose a "best" solution from among candidate typologies that use randomisation. 
-
-One goal was to preserve information about finer-scale variations in ecosystem types while accurately representing environmental conditions across the entire continent. To this end, we employed a two-step hierarchical approach (Fig. 1). First, all pixels intersecting with an ice-free area were subjected to a factor analysis incorporating ten environmental (abiotic) variables (Table S1). Second, the resulting environmental groups were each subjected to a second factor analysis separately, this time based on suitability maps for functional groups. The results can be used to assign each pixel a value representing how well it fits into each grouping, and each pixel is placed into the group with the best fit. 
+The typology was created using factor analysis, which is similar to a principal components analysis, but with more flexibility allowing for unique variance in the measured variables. We aimed to preserve information about finer-scale variations in ecosystem types while accurately representing environmental conditions across the entire continent. To this end, we employed a two-step hierarchical approach (Fig. 1). First, all pixels intersecting with an ice-free area were subjected to a factor analysis incorporating ten environmental (abiotic) variables (Table S1). Second, the resulting environmental groups were each subjected to a second factor analysis separately, this time based on habitat suitability models for functional groups. The results can be used to assign each pixel a value representing how well it fits into each grouping, and each pixel is placed into the group with the best fit. 
 
 Some pixels could not be classified due to lack of data coverage when input layers were coarse or poorly aligned. Pixels which were left unclassified by the factor analysis were therefore classified in the same biotic assemblage as their nearest classified neighbour using the arcMap function Nibble. 
 
+The classification groups at the first tier of the analysis are termed "major environmental units", while the second tier was used to produce "habitats". During post-processing, two major environmental units representing geothermally active areas and lakes were added. 
 
 ### Results
 
-The resulting classification scheme has 5 major environmental units. Each unit has 4-7 subgroups determined by the suitability layers, for a total of 28 units. Five special ecosystems that were not represented by the biotic and abiotic data layers were overlaid on the typology: active and dormant volanoes, geothermal areas, lakes, and penguin rookeries. The environmental groups are as follows. 
+The resulting classification scheme has 7 major environmental units, 5 from the factor analysis and 2 added later. Each of the units from the factor analysis has 4-7 subgroups determined by the suitability layers, for a total of 28 units. Three special habitats were placed in the geothermal unit: active and dormant volcanoes and geothermal areas. Lakes where represented by a single habitat due to insufficient data to classify them further. Finally, penguin colonies were added and placed in the environmental unit with the lowest elevation. The environmental units are as follows. 
 
 ```{r descriptions, echo=FALSE, message=FALSE, warning=FALSE}
 env_descr <- read_csv("Environment_group_table.csv")
@@ -45,18 +44,16 @@ env_descr <- read_csv("Environment_group_table.csv")
 flextable(env_descr) %>% width(width = c(1, .5, 1, 4))
 ```
 
-Below is a visual overview of the classification of environmental groups. Each panel represents the range of values for one environmental variable in each environmental group. Cloud, melt, and precip are moisture availability variables. meanTemp is the mean Temperature in 2014-2015. Solar is solar radiation, which is calculated based on aspect, reflected light, and other factors. Elev = elevation; rugos = Rugosity; slope = slope of incline; wind = an average measure of the amount of wind. 
-
-
+Below is a visual overview of the classification of environmental units. Each panel represents the range of values for two environmental variables in each environmental group. Cloud, melt, and precip are moisture availability variables. MeanTemp is the mean Temperature in 2014-2015. Solar is solar radiation, which is calculated based on aspect, reflected light, and other factors. Elev = elevation; rugos = Rugosity; slope = slope of incline; wind = an average measure of the amount of wind. 
 
 ```{r overview_boxplots, echo=FALSE, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
 ecodatAb %>% slice(sample(1:nrow(.), 20000000)) %>%
-  separate(unit_h, into = c("group", "unit"), sep = "B") %>% 
+  separate(LCODE, into = c("group", "unit"), sep = "B") %>% 
    mutate(unit = ifelse(group %in% c("G1", "G2", "G3", "L"), group, unit), 
           group = ifelse(group %in% c("G1", "G2", "G3", "L"), "G and L", group)) %>%
   ggplot( aes(x = group, y = value, fill = group)) + geom_boxplot(outlier.size = 0.2) + 
   facet_wrap(~name, scales = "free_y") + 
-  labs(fill = "Environmental group", x = "Environmental Group")
+  labs(fill = "Environmental unit", x = "Environmental unit")
 
 ```
 
@@ -68,14 +65,14 @@ Terrain
 col12 <- c(gg_color_hue(7), "sienna1", "purple", "slateblue", "pink1", "steelblue1")
 
 ellipse_data <- data %>% 
-  separate(unit_h, into = c("group", "unit"), sep = "B") %>% 
-   mutate(unit = ifelse(group %in% c("G1", "G2", "G3", "L"), group, unit), 
-          group = ifelse(group %in% c("G1", "G2", "G3", "L"), "G and L", group))
+  separate(LCODE, into = c("unit", "habitat"), sep = "B") %>% 
+   mutate(habitat = ifelse(unit %in% c("G1", "G2", "G3", "L"), unit, habitat), 
+          unit = ifelse(unit %in% c("G1", "G2", "G3", "L"), "G and L", unit))
   
-ggplot(ellipse_data, aes(x = slope, y = elevation, color = unit)) + 
+ggplot(ellipse_data, aes(x = slope, y = elevation, color = habitat)) + 
   stat_ellipse(level = 0.50, lwd = 1.5) + 
-  facet_wrap(.~group, scales = 'fixed') +
-  scale_color_manual(values = col12)
+  facet_wrap(.~unit, scales = 'fixed') +
+  scale_color_manual(values = col12) + labs(color = "habitat")
 
 ```
 
@@ -83,9 +80,9 @@ Moisture availability (note logged axes)
 
 ```{r moisture, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
 
-ggplot(ellipse_data, aes(x = melt, y = totPrecip, color = unit)) + 
+ggplot(ellipse_data, aes(x = melt, y = totPrecip, color = habitat)) + 
   stat_ellipse(level = 0.50, lwd = 1.5) + 
-  facet_wrap(.~group, scales = 'fixed') +
+  facet_wrap(.~unit, scales = 'fixed') +
   scale_y_log10() + scale_x_log10() +
   scale_color_manual(values = col12)
 
@@ -94,9 +91,9 @@ ggplot(ellipse_data, aes(x = melt, y = totPrecip, color = unit)) +
 Wind and light conditions
 
 ```{r wind, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
-ggplot(ellipse_data, aes(x = solar, y = wind, color = unit)) + 
+ggplot(ellipse_data, aes(x = solar, y = wind, color = habitat)) + 
   stat_ellipse(level = 0.50, lwd = 1.5) + 
-  facet_wrap(.~group, scales = 'fixed') + 
+  facet_wrap(.~unit, scales = 'fixed') + 
   scale_color_manual(values = col12)
 
 ```
@@ -104,77 +101,77 @@ ggplot(ellipse_data, aes(x = solar, y = wind, color = unit)) +
 Cloud and growing season 
 
 ```{r cloud, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
-ggplot(ellipse_data, aes(x = cloud, y = DDm5, color = unit)) + 
+ggplot(ellipse_data, aes(x = cloud, y = DDm5, color = habitat)) + 
        stat_ellipse(level = 0.50, lwd = 1.5)+ 
-       facet_wrap(.~group, scales = 'fixed') + scale_y_log10() +
+       facet_wrap(.~unit, scales = 'fixed') + scale_y_log10() +
        scale_color_manual(values = col12)
 
 ```
 
 Below are more detailed visual overviews of the variable range in each unit, plotted separately for each environmental group. These plots should help give a clearer idea of how the units are distinct from one another. Note that unit-level classification was done on suitability data alone, meaning that the environmental differences among units are likely reflected by differing biotas, even if they are slight. 
 
-### Environmental group 1 (Midland mesic ecosystems) variables by unit.
+### Environmental unit 1 (Mild Lowlands) 
 
 
 ```{r E1map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(1:4))
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
 
 # Full map
   ggplot() +
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 ```{r E1box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("E1", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E1", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("E1", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("E1", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
-### Environmental group 2 (Rugged high mountain slopes) variables by unit
+### Environmental unit 2 (Midland humid habitats) 
 
 ```{r E2map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(6:11)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(1:4)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r E2box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("E2", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E2", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("E2", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("E2", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
 
 
 
-### Environmental group 3 (Mild lowlands) variables by unit
+### Environmental unit 3 (Midland dry/sunny habitats)
 
 ```{r E3map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(21:25))
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_manual(values = c(viridis(7), "red")) + 
     scale_color_manual(values = c(viridis(7), "red")) + labs(x = "x", y = "y") 
     
@@ -182,43 +179,43 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
 
 
 ```{r E3box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("E3", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E3", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("E3", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("E3", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
 
 
-### Environmental group 4 (Sunny slopes) variables by unit
+### Environmental unit 4 (High mountaintops) 
 
 ```{r E4map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(21:25)) 
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(6:11)) 
 
 # Full map
   ggplot() +  
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) +   
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) +labs(x = "x", y = "y")
 ```
 
 
 ```{r E4box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("E4", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E4", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("E4", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("E4", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 
 ```
 
 
-### Environmental group 5 (Highland windy plateaus) variables by unit
+### Environmental unit 5 (High flatlands) 
 
 ```{r E5map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(27:32)) 
@@ -228,17 +225,17 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(27:32))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r E5box, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("E5", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("E5", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("E5", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("E5", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
@@ -253,17 +250,17 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(100, 200, 300, 500))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.1) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
     scale_fill_viridis(discrete = TRUE) + scale_color_viridis(discrete = TRUE) + labs(x = "x", y = "y")
 ```
 
 
 ```{r GLbox, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-ecodatAb %>% filter(grepl("G|L", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatAb %>% filter(grepl("G|L", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
-ecodatBi %>% filter(grepl("G|L", unit_h)) %>% 
-  ggplot(aes(x = unit_h, y = value, fill = unit_h)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
+ecodatBi %>% filter(grepl("G|L", LCODE)) %>% 
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon,    scales = "free") + scale_fill_viridis(discrete = TRUE) + theme(axis.text.x = element_blank())
 
 ```
 
