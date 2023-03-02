@@ -23,7 +23,7 @@ library(flextable)
 
 ```
 
-## Ecosystem `r descr[count,] %>% pull(Code)`
+## Ecosystem `r unitname`
 #### `r descr[count,] %>% pull(Name)`
 `r descr[count,] %>% pull(Description)`
 
@@ -51,7 +51,7 @@ for(i in seq_along(pictures)){
 
 Maps - Full map
 
-```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
+```{r full map, eval=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
  # Full map
   basemap +
     geom_tile(data=unit, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.5) +
@@ -61,7 +61,7 @@ Maps - Full map
 
 Regional maps
 
-```{r inset maps, echo=FALSE, message=FALSE, warning=FALSE}
+```{r inset maps, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
   # smaller maps
   unit$cluster <- kmeans(unit[,c("x", "y")], centers = 10, iter.max = 100, nstart = 5)$cluster
   units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 10000)) %>% split(.$cluster)
@@ -112,40 +112,33 @@ rm(subplots)
 
 ### Environment
 
-The unit `r unitname` is part of the environmental supergroup `r word(unitname, 1,1, "B")`.
+The unit `r unitname` is part of the environmental supergroup `r groupname`.
 
 ```{r calculate abiotic means, message=FALSE, warning=FALSE, include=FALSE}
- unit_cont <- ecodatAb %>% filter(name %in% abiotic) %>% group_by(name) %>% 
-  summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
-            medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
+ecodatAb$f <- "continent"
+ecodatAb$f[grepl(pattern = groupname, ecodatAb$unit_h)] <- "env. unit"
+ecodatAb$f[ecodatAb$unit_h == unitname] <- "assemblage"
+ecodatAb$f <- factor(ecodatAb$f, levels = c("continent", "env. unit", "assemblage"))
 
- envgr_cont <- ecodatAb %>% filter(name %in% abiotic) %>% group_by(name) %>% 
-   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
-               mean(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T), 
-             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T) - 
-               median(value[!grepl(pattern = word(unitname, 1,1, "B"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
- 
-  unit_envgr <- ecodatAb %>% filter(name %in% abiotic & grepl(pattern = word(unitname, 1,1, "B"), unit_h)) %>% group_by(name) %>% 
-    summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
-              medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
-
+abioticMeans <- ecodatAb %>% group_by(name, f) %>% 
+  summarise(mean = mean(value, na.rm = T)) %>% 
+  pivot_wider(names_from = "f", values_from = "mean") %>% 
+  mutate(envgr_cont = ifelse(name == "meanTemp", continent/`env. unit`, `env. unit`/ continent), 
+         unit_envgr = ifelse(name == "meanTemp", `env. unit`/assemblage, assemblage / `env. unit`))  
   
 ```
 
-This supergroup is, on average, substantially higher in `r df2txt(envgr_cont, 0.05)` than continental Antarctica. It is substantially lower in `r df2txt(envgr_cont, -0.05)` than the rest of the continent.
+This supergroup is, on average, substantially higher in `r df2txt(abioticMeans, 1.25, type = "a")` than continental Antarctica. It is substantially lower in `r df2txt(abioticMeans, 0.75, type = "a")` than the rest of the continent.
 
 The elevation of unit `r unitname` ranges from `r round(elev_table$min[count])` to `r round(elev_table$max[count])` metres above sea level, but 90% of its pixels fall above `r round(elev_table$lower_90[count])` and below `r round(elev_table$upper_90[count])` metres. Its average elevation is `r round(elev_table$mean[count])` metres.
 
-The unit is higher in `r df2txt(unit_envgr, 0.04)` and lower in `r df2txt(unit_envgr, -0.04)` than the rest of its environmental supergroup.
+The unit is higher in `r df2txt(abioticMeans, 1.25, type = "b")` and lower in `r df2txt(abioticMeans, 0.75, type = "b")` than the rest of its environmental supergroup.
 
 #### Distinctiveness of the assemblage from its group and the rest of Antarctica
 
-```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE}
-ecodatAb$f <- "continent"
-ecodatAb$f[grepl(pattern = word(unitname, 1,1, "B"), ecodatAb$unit_h)] <- "env. unit"
-ecodatAb$f[ecodatAb$unit_h == unitname] <- "assemblage"
+```{r abiotic boxplots, echo=FALSE, fig.height=6, fig.width=9, message=FALSE, warning=FALSE}
 
-ggplot(ecodatAb %>% filter(name %in% abiotic), aes(y = value, x = f, fill = f)) + 
+ggplot(ecodatAb %>% slice(sample(1:nrow(ecodatAb), 10000000)), aes(y = value, x = f, fill = f)) + 
   geom_boxplot(outlier.size = 0.2) + facet_wrap(.~name, scales = "free_y") + labs(x = "Category", fill = "Category")
 
 ```
@@ -154,7 +147,7 @@ ggplot(ecodatAb %>% filter(name %in% abiotic), aes(y = value, x = f, fill = f)) 
 ### Biota
 
 Most widespread species in the unit (found in most pixels)
-```{r widespread species, echo=FALSE, message=FALSE, warning=FALSE}
+```{r widespreadspp, echo=FALSE, message=FALSE, warning=FALSE}
 species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
 
@@ -176,39 +169,40 @@ flextable(most_widespread_species) %>%
 
 
 ```{r calculate biotic means, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+#ecodatBi$f <- "continent"
+#ecodatBi$f[grepl(pattern = groupname, ecodatBi$unit_h)] <- "env. unit"
+#ecodatBi$f[ecodatBi$unit_h == unitname] <- "assemblage"
 
-  unit_cont <- ecodat %>% filter(name %in% good_models) %>% group_by(taxon) %>% 
-  summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T)- mean(value[unit_h != unitname], na.rm = T), 
-            medi_diff = median(value[unit_h == unitname], na.rm = T)- median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff)) 
+ecodatBi <- ecodatBi %>% mutate(f = ifelse(unit_h == unitname, "assemblage", 
+                                           ifelse(grepl(pattern = groupname, unit_h), "env. unit", 
+                                                  "continent")))
+ecodatBi$f <- factor(ecodatBi$f, levels = c("continent", "env. unit", "assemblage"))
 
- envgr_cont <- ecodat %>% filter(name %in% good_models) %>% group_by(taxon) %>% 
-   summarise(mean_diff = mean(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
-               mean(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T), 
-             medi_diff = median(value[grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T) - 
-               median(value[!grepl(pattern = word(unitname, 1,1, "_"), unit_h)], na.rm = T)) %>% arrange(desc(mean_diff))
- 
-  unit_envgr <- ecodat %>% filter(name %in% good_models & grepl(pattern = word(unitname, 1,1, "_"), unit_h)) %>% group_by(taxon) %>% 
-    summarise(mean_diff = mean(value[unit_h == unitname], na.rm = T) - mean(value[unit_h != unitname], na.rm = T),
-              medi_diff = median(value[unit_h == unitname], na.rm = T) - median(value[unit_h != unitname], na.rm = T)) %>% arrange(desc(mean_diff))
 
+bioticMeans <- ecodatBi %>% group_by(taxon, f) %>% 
+  summarise(mean = mean(value, na.rm = T)) %>% 
+  pivot_wider(names_from = "f", values_from = "mean") %>% 
+  mutate(envgr_cont = continent/`env. unit`, 
+         unit_envgr = `env. unit`/assemblage )
 
 ```  
 
 This supergroup is, on average, substantially higher in suitability for 
-`r df2txt(envgr_cont, 0.5, "taxon")` 
+`r df2txt(bioticMeans, 1.25, "taxon", "a")` 
 functional groups than continental Antarctica. It is substantially lower in suitability for
-`r df2txt(envgr_cont, -0.5, "taxon")` 
+`r df2txt(bioticMeans, 0.75, "taxon", "a")` 
 than the rest of the continent.
 
-Unit `r unitname` is higher in suitability for `r df2txt(unit_envgr, 0.3, "taxon")` 
-and lower in suitability for `r df2txt(unit_envgr, -0.3, "taxon")` than the rest of its environmental supergroup.
+Unit `r unitname` is higher in suitability for `r df2txt(bioticMeans, 1.25, "taxon", "b")` 
+and lower in suitability for `r df2txt(bioticMeans, 0.75, "taxon", "b")` than the rest of its environmental supergroup.
 
 
 
 Distinctiveness of the unit from the environmental group and the rest of Antarctica 
  
-```{r eval=FALSE, fig.height=12, fig.width=9, message=FALSE, warning=FALSE, include=FALSE}
-ggplot(ecodat %>% filter(name %in% good_models), aes(y = value, x = f, fill = f)) + 
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=12}
+
+ggplot(ecodatBi %>% slice(sample(1:nrow(ecodatBi), 10000000)), aes(y = value, x = f, fill = f)) + 
   geom_boxplot() + facet_wrap(.~taxon, scales = "free") + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
 
 ```
