@@ -141,19 +141,19 @@ extract_biotic_dat <- function(xy, good_models){
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
-factor_analysis <- function(dat, mincomp = 0.35, name){
+factor_analysis <- function(dat, name, scale = TRUE){
   message("Choosing number of factors")
   dat <- dat %>% na.omit()
   rn <- rownames(dat)
-  dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
+  if(scale) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
   
-  cvs <- purrr::map(2:ncol(dat), function(x) fa(dat, nfactors = x, rotate = "varimax")$loadings %>% as.matrix() %>% abs() %>% apply(2, max)) %>% sapply(min)
-  nfact <<- 1+ length(which(cvs >=mincomp))
-  
-  message(paste("Running factor analysis with", nfact, "factors"))  
-  fa1 <- fa(dat, nfact, rotate = "varimax" )
+  paranal <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
+  nfact <- paranal$Retained
+  message(paste("Factor analysis with", nfact, "factors"))  
+  fa1 <- fa(dat, nfact, rotate = "varimax")
   saveRDS(fa1, paste0("./results/factor_analyses/fa_", name, ".rds"))
   saveRDS(dat, paste0("./results/factor_analyses/data_", name, ".rds"))
+  saveRDS(paranal, paste0("./results/factor_analyses/paran_", name, ".rds"))
   sc <- data.frame(fa1$scores)
   
   consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)

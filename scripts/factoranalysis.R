@@ -6,7 +6,7 @@ source('./scripts/Helper_Functions.R')
 ## Load data ####
 #antarctica <- readOGR("../Data/Base", "Antarctic_mainland")
 
-v1 <- readRDS("./data/combined_100m_extract.rds")
+v1 <- readRDS("./data/combined_100m_extract_union.rds")
 
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
@@ -16,16 +16,16 @@ n <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, ful
 
 bad_models <- c("adeliae.tif","Procellariiformes.tif","Poduromorpha.tif", "Grimmiales.tif",
                 "Cyanobacteria.tif", "Tardigrada.tif","Marchantiophyta.tif","Lecideaceae.tif",
-                "Umbilicariaceae.tif")
+                "Umbilicariaceae.tif", "antarctica.tif", "papua.tif")
 
 good_models <- n[!n%in% bad_models] 
 
 ##### Factor analysis L1 (abiotic variables) ####
 
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
-pdat <- data.frame(na.omit(v1 %>% select(pixID, contains("coords"), all_of(abiotic))) %>% 
-                     select(pixID, contains("coords")), 
-                   consensus = factor_analysis(cldat, mincomp = 0.45, name = "L1"))
+pdat <- data.frame(na.omit(v1 %>% dplyr::select(pixID, contains("coords"), all_of(abiotic))) %>% 
+                     dplyr::select(pixID, contains("coords")), 
+                   consensus = factor_analysis(cldat, name = "L1"))
  
 #combine results
 v1 <- full_join(pdat, v1)
@@ -37,7 +37,7 @@ v1 <- classify_by_neighbours(v1, consensus, res = 100)
 
 ###### Hierarchical Factor analysis L2 (SDM data) ############
 cldat <- v1 %>% split(.$consensus) %>% purrr::map(~dplyr::select(., all_of(good_models)))
-pdat <- map2(cldat, names(cldat), ~factor_analysis(.x, name = paste0("L2_E", .y)))
+pdat <- map2(cldat, names(cldat), ~factor_analysis(.x, name = paste0("L2_E", .y), scale = FALSE))
 v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("consensus2")) %>% merge(v1, by = 0, all = TRUE) %>% namerows()
 # Classify unclassified L2 pixels 
 v1 <- v1 %>% split(.$consensus) %>% purrr::map(classify_by_neighbours, consensus2, maxdist = 3, res = 100) %>% bind_rows()
@@ -106,14 +106,14 @@ for(i in seq_along(unitname)){
 
 ## make raster key ###
 typkey <- out %>% filter(!grepl("NA", unit_h)) %>% pull(unit_h) %>% unique() %>% sort() %>% 
-  data.frame(VALUE = 1:28) %>% setNames(c("unit", "biotic_assemblage")) %>%
+  data.frame(VALUE = 1:28) %>% setNames(c("unit", "habitat")) %>%
   mutate(unit = str_replace(unit, "env", "E") %>% str_replace("_sdm", "B"))
 typkey <- rbind(typkey, typkey %>% 
                         mutate(unit = paste0("G1", unit), 
-                               biotic_assemblage = 200 + biotic_assemblage), 
+                               habitat = 200 + habitat), 
                 typkey %>% mutate(unit = paste0("G2", unit), 
-                                  biotic_assemblage = 100 + biotic_assemblage), 
-                data.frame(unit = c("G3E3B3", "E3B8", "L"), biotic_assemblage = c(315, 400, 500)))
+                                  habitat = 100 + habitat), 
+                data.frame(unit = c("G3E3B3", "E3B8", "L"), habitat = c(315, 400, 500)))
 
 #####
 ## add pixels from new rock outcrop layer #####
