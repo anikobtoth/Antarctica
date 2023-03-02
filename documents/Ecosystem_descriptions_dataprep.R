@@ -13,7 +13,8 @@ library(sf)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
-out <- readRDS("./results/out_TYPV6.rds")
+#out <- readRDS("./results/out_TYPV6.rds")
+data <- readRDS("./results/ecodatV6.rds")
 
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
@@ -39,7 +40,6 @@ antarctica <- st_read("../Data/Base", "Antarctic_landpoly") %>%
 
 # Occurrence data
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
-
 occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
 # Unit raster
@@ -51,13 +51,13 @@ GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
 
 # verbal descriptions
 descr <- read_csv("./documents/Unit_descriptionsV6.csv")
-descr <- descr %>% filter(!grepl(pattern = "E[1-5]$", Code))
-
+descr <- descr %>% filter(!grepl(pattern = "E[1-5]$|G$", LCODE))
+data <-  full_join(descr %>% dplyr::select(NEWCODE, LCODE), data, by = c("NEWCODE" = "unit_h"))
 # Format data #####
-key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>% 
-  dplyr::select(unit_h, typV6) %>% distinct() %>% tibble() %>%
-  rbind(data.frame(unit_h = c("G1", "G2", "G3", "E3B8", "L"), 
-                   typV6 = c(100, 200, 300, 400, 500)))
+# key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>% 
+#   dplyr::select(unit_h, typV6) %>% distinct() %>% tibble() %>%
+#   rbind(data.frame(unit_h = c("G1", "G2", "G3", "E3B8", "L"), 
+#                    typV6 = c(100, 200, 300, 400, 500)))
 
 # typ_df <- left_join(rasterToPoints(typ_fah) %>% data.frame(), key, by = c("typv6_v1pl" = "typV6"))  %>% 
 #   mutate(xR = round_any(x, 50),
@@ -68,8 +68,8 @@ key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>%
 # bio <- extract_biotic_dat(typ_df[,c("x","y")], good_models)
 # data <- full_join(data, bio, by = c("x", "y"))
 
-data <- readRDS("./results/ecodatV6.rds")
 
+typ_df <- data %>% dplyr::select(LCODE, typv6_v1pl, x, y)
 
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                              class, order_, family, genus, species) %>% unique()
@@ -134,9 +134,14 @@ restricted_spp <- c(restricted_spp, sppDat$scientific[which(!sppDat$scientific %
 #apply(PA_common, 1, which.max)
 
 ## Endemicity
-spp_list <- rownames(PA)
+#spp_list <- rownames(PA)
 
-ecodat <- data %>% pivot_longer(cols = all_of(c(abiotic, good_models)))
+#ecodat <- data %>% pivot_longer(cols = all_of(c(abiotic, good_models)))
+ecodatAb <- data %>% dplyr::select(-all_of(good_models), -x, -y, -xR, -yR, -aspect) %>% 
+  pivot_longer(cols = all_of(abiotic)) %>% na.omit()
+ecodatBi <- data %>% dplyr::select(-all_of(abiotic), -x, -y, -xR, -yR, -aspect) %>% 
+  pivot_longer(cols = all_of(good_models)) %>% na.omit()
+
 bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguins Adelie", "penguins Chinstrap",
                                                "lichens Bacidiacid", "mosses Bryales", "lichens Candelarid ", 
                                                "algae Green", "lichens Cladonid", "Cyanobacteria","mosses Dicranales",
@@ -148,10 +153,10 @@ bio_key <- data.frame(name = biotic, taxon = c("lichens Acarosporacid", "penguin
                                                "Rotifers", "mites Sarcoptiformes", "lichens Stereocaulid", "Tardigrades",
                                                "lichens Teloschistid", "mites Trombidiformes", "lichens Umbilicarid"))
 
-ecodat <- ecodat %>% left_join(bio_key)
+ecodatBi <- ecodatBi %>% left_join(bio_key)
 
 ## raw elevations ###
-elev_table <- ecodat %>% filter(name == "elevation") %>%
+elev_table <- ecodatAb %>% filter(name == "elevation") %>%
   group_by(unit_h) %>% summarise(min = min(value, na.rm = T), 
                                   max = max(value, na.rm = T), 
                                   mean = mean(value, na.rm = T), 
@@ -162,7 +167,7 @@ elev_table <- ecodat %>% filter(name == "elevation") %>%
 basemap <- ggplot() +  
   geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
   coord_sf(datum = st_crs(3031)) +
-  geom_tile(data = data, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4)
+  geom_tile(data = slice(typ_df, sample(1:nrow(typ_df)), 2000000), aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4)
 
 #### Generate reports ####
 units <- data %>% dplyr::select(typv6_v1pl, unit_h) %>% distinct() %>% arrange(typv6_v1pl)
@@ -172,9 +177,10 @@ count <- 0
 for(i in typv6) {
   count <- count + 1
   unitname <- unitnames[count]
-  unit <- data %>% dplyr::filter(typv6_v1pl == i) 
+  groupname <- word(unitname, 1,1, sep = "B")
+  unit <- typ_df %>% dplyr::filter(typv6_v1pl == i) 
   rmarkdown::render('./documents/Ecosystem_Descriptions_doc.Rmd',  
-                    output_file =  paste("report_", unitnames[i], '_', Sys.Date(), ".docx", sep=''), 
+                    output_file =  paste("report_", unitnames[count], '_', Sys.Date(), ".docx", sep=''), 
                     output_dir = './documents/reports/short_doc')
   
   
