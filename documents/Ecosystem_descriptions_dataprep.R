@@ -13,15 +13,16 @@ library(sf)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
-#out <- readRDS("./results/out_TYPV6.rds")
-data <- readRDS("./results/ecodatV6.rds")
+
+data <- readRDS("./results/ecodatV6.rds") %>%
+  mutate(unit_h = recode(unit_h, "volcanic" = "G1", "dormant" = "G2", "geothermal" = "G3", "rookery" = "E3B8", "lake" = "L"))
 
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
 
 # SDM and environmental data
-biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
-
+#biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
+good_models <- grep(names(data), pattern = ".tif", value = T)
 bad_models <- c("adeliae.tif",
                 "Procellariiformes.tif",
                 "Poduromorpha.tif",
@@ -32,7 +33,6 @@ bad_models <- c("adeliae.tif",
                 "Lecideaceae.tif",
                 "Umbilicariaceae.tif")
 
-good_models <- biotic[!biotic%in% bad_models] 
 
 # Antarctica shapefile
 antarctica <- st_read("../Data/Base", "Antarctic_landpoly") %>% 

@@ -279,25 +279,28 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(100, 200, 300, 500))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
-    scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour")) + labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.9) +
+    scale_fill_manual(values = c("darkred","orangered","pink1","steelblue1")) + 
+    scale_colour_manual(values = c("darkred","orangered","pink1","steelblue1")) +labs(x = "x", y = "y", col = "habitat", fill = "habitat")
 ```
-
 
 ```{r GLboxA, echo=FALSE, message=FALSE, fig.height=6, fig.width=10, warning=FALSE}
 ecodatAb %>% filter(grepl("G|L", LCODE)) %>% 
-  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~name, scales = "free", nrow = 2) + scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = "fill") + theme(axis.text.x = element_blank())+
-   labs(fill = "habitat", x = "habitat")
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + 
+  facet_wrap(~name, scales = "free", nrow = 2) + 
+  scale_fill_manual(values = c("darkred","orangered","pink1","steelblue1")) + 
+  theme(axis.text.x = element_blank())+
+  labs(fill = "habitat", x = "habitat")
 ```
 
 
 ```{r GLboxB, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
 
 ecodatBi %>% filter(grepl("G|L", LCODE)) %>% 
-  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) + facet_wrap(~taxon, scales = "free") + scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = "fill") + theme(axis.text.x = element_blank())+
-   labs(fill = "habitat", x = "habitat")
+  ggplot(aes(x = LCODE, y = value, fill = LCODE)) + geom_boxplot(outlier.size = 0.3) +  
+  facet_wrap(~taxon, scales = "free") + 
+  scale_fill_manual(values = c("darkred","orangered","pink1","steelblue1")) + 
+  theme(axis.text.x = element_blank())+
+  labs(fill = "habitat", x = "habitat")
 
 ```
-
-
-
