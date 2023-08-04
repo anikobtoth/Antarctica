@@ -18,19 +18,21 @@ library(DT)
 library(patchwork)
 library(flextable)
 
+knitr::knit_hooks$set(crop = knitr::hook_pdfcrop)
+
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
 
 ```
 
-## Ecosystem `r unitname`
+## Habitat Complex `r unitname`
 #### `r descr[count,] %>% pull(Name)`
 `r descr[count,] %>% pull(Description)`
 
 ### Photos (if available)
 
 ```{r pictures, echo=FALSE, message=FALSE, warning=FALSE}
-pictures <- list.files(path = "../../Images/V5", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
+pictures <- list.files(path = "../../Images/V6", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
 
 show_pictures <- length(pictures)>0
 
@@ -51,24 +53,27 @@ for(i in seq_along(pictures)){
 
 Maps - Full map
 
-```{r full map, eval=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE, crop = TRUE}
  # Full map
   basemap +
-    geom_tile(data=unit, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = 1.5) +
+    geom_tile(data=unit, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.8) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
-    labs(x = "x", y = "y")
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat") + 
+    theme(legend.position = c(0.1, 0.1), axis.text = element_blank(), axis.ticks = element_blank())
 ```
 
 Regional maps
 
-```{r inset maps, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+```{r inset maps, echo=FALSE, message=FALSE, warning=FALSE, crop = TRUE}
   # smaller maps
-  unit$cluster <- kmeans(unit[,c("x", "y")], centers = 10, iter.max = 100, nstart = 5)$cluster
-  units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 10000)) %>% split(.$cluster)
-  df.grids <- units %>% lapply(geo_bounds, buff = 0.15)
-  #aspect <- units %>% sapply(aspect_ratio)
-  #width <- df.grids %>% sapply(function(x) return(x["right"]-x["left"]))
-  #height <- df.grids %>% sapply(function(x) return(x["top"]-x["bottom"]))
+  #unit$cluster <- kmeans(unit[,c("x", "y")], centers = 10, iter.max = 100, nstart = 5)$cluster
+  #units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 10000)) %>% split(.$cluster)
+  units <- purrr::map(acbr_ext, ~df_crop(unit, .x)) %>% 
+  `[`(purrr::map_int(., nrow) %>% `>`(5000) %>% which())
+  
+  # remove far outliers for mapping purposes
+  units <- purrr::map(units, ~if(length(c(far_outliers(.x$x), far_outliers(.x$y))) > 0) return(.x %>%    slice(-c(far_outliers(x), far_outliers(y)))) else return(.x))
+  df.grids <- units %>% lapply(geo_bounds, buff = 0.1)
   ant_crops <- df.grids %>% lapply(function(x) st_crop(antarctica, x))
   bgr_unit_crops <- df.grids %>% lapply(function(x) df_crop(data, x))
   
@@ -76,19 +81,18 @@ Regional maps
     p <- ggplot() +  
       geom_sf(data = x, fill="gray50", color= NA, size=0.25) + coord_sf(datum = st_crs(3031)) +
       geom_tile(data = y, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
-      #geom_tile(data = y, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = .8) +
-      #scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) + coord_equal() +
-      theme(legend.position = "none", 
+           theme(legend.position = "none", 
             plot.margin = unit(c(0,0,0,0), "cm"), 
-            axis.text = element_text(size = 6), 
+            axis.text = element_blank(), 
             axis.title = element_blank()) +
       scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific) 
     return(p)
   })
   
-  subplots <- map2(subplots, units, function(x, y){
-    p <- x + geom_tile(data = y, aes(x=x, y=y, col= unit_h, fill = unit_h), lwd = .6) +
-      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D"))
+  subplots <- map2(subplots, names(units), function(x, y){
+    p <- x + geom_tile(data = units[[y]], aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = .8) +
+      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
+      ggtitle(y) + theme(plot.title = element_text(size = 10))
     return(p)
   })
   
@@ -100,10 +104,11 @@ Regional maps
  
 
 rm(ant_crops, bgr_unit_crops)
+subplots
 ```
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*5, fig.width = 12}
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*8, fig.width = 12}
  eval(parse(text = plotcmd))
 detach(subplots)
 rm(subplots)
@@ -112,13 +117,13 @@ rm(subplots)
 
 ### Environment
 
-The unit `r unitname` is part of the environmental supergroup `r groupname`.
+The unit `r unitname` is part of Major Environmental Unit `r groupname`.
 
 ```{r calculate abiotic means, message=FALSE, warning=FALSE, include=FALSE}
 ecodatAb$f <- "continent"
 ecodatAb$f[grepl(pattern = groupname, ecodatAb$unit_h)] <- "env. unit"
-ecodatAb$f[ecodatAb$unit_h == unitname] <- "assemblage"
-ecodatAb$f <- factor(ecodatAb$f, levels = c("continent", "env. unit", "assemblage"))
+ecodatAb$f[ecodatAb$unit_h == unitname] <- "habitat"
+ecodatAb$f <- factor(ecodatAb$f, levels = c("continent", "env. unit", "habitat"))
 
 abioticMeans <- ecodatAb %>% group_by(name, f) %>% 
   summarise(mean = mean(value, na.rm = T)) %>% 
@@ -128,7 +133,7 @@ abioticMeans <- ecodatAb %>% group_by(name, f) %>%
   
 ```
 
-This supergroup is, on average, substantially higher in `r df2txt(abioticMeans, 1.25, type = "a")` than continental Antarctica. It is substantially lower in `r df2txt(abioticMeans, 0.75, type = "a")` than the rest of the continent.
+Unit `r groupname` is, on average, substantially higher in `r df2txt(abioticMeans, 1.25, type = "a")` than continental Antarctica. It is substantially lower in `r df2txt(abioticMeans, 0.75, type = "a")` than the rest of the continent.
 
 The elevation of unit `r unitname` ranges from `r round(elev_table$min[count])` to `r round(elev_table$max[count])` metres above sea level, but 90% of its pixels fall above `r round(elev_table$lower_90[count])` and below `r round(elev_table$upper_90[count])` metres. Its average elevation is `r round(elev_table$mean[count])` metres.
 
@@ -146,7 +151,7 @@ ggplot(ecodatAb %>% slice(sample(1:nrow(ecodatAb), 10000000)), aes(y = value, x 
 
 ### Biota
 
-Most widespread species in the unit (found in most pixels)
+The most widely sampled species in the habitat complex (found in most pixels)
 ```{r widespreadspp, echo=FALSE, message=FALSE, warning=FALSE}
 species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
 counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
@@ -158,12 +163,12 @@ while(n < 10){
   n <- n + length(which(counts == unique(counts)[j]))
 }
 
-most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 4)) %>% filter(relative_pct > 0)
+most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 2)) %>% filter(relative_pct > 0) %>% 
+  setNames(c("scientific name", "functional group", "phylum", "Antarctic specialist", "count", "percent of samples"))
 
 #DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
 
-flextable(most_widespread_species) %>% 
-  set_caption(caption = paste0("The top most widespread species in ecosystem ", unitname)) %>% 
+flextable(most_widespread_species) %>%
   width(width = c(1.2, 2.4, 1, 1, 0.6, 1))
 ```
 
