@@ -25,7 +25,7 @@ good_models <- n[!n%in% bad_models]
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
 pdat <- data.frame(na.omit(v1 %>% dplyr::select(pixID, contains("coords"), all_of(abiotic))) %>% 
                      dplyr::select(pixID, contains("coords")), 
-                   consensus = factor_analysis(cldat, name = "L1"))
+                   consensus = factor_analysis(cldat, name = "L1", scale = 1, nfact = 5))
  
 #combine results
 v1 <- full_join(pdat, v1)
@@ -33,23 +33,24 @@ v1 <- v1 %>% mutate(x = coords.x1, y = coords.x2)
 rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 
 # Classify unclassified L1 pixels 
-v1 <- classify_by_neighbours(v1, consensus, res = 100)
+#v1 <- classify_by_neighbours(v1, consensus, res = 100)
 
 ###### Hierarchical Factor analysis L2 (SDM data) ############
 cldat <- v1 %>% split(.$consensus) %>% purrr::map(~dplyr::select(., all_of(good_models)))
-pdat <- map2(cldat, names(cldat), ~factor_analysis(.x, name = paste0("L2_E", .y), scale = FALSE))
-v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% setNames(c("consensus2")) %>% merge(v1, by = 0, all = TRUE) %>% namerows()
+pdat <- map2(1:5, c(4,6,7,5,6), ~factor_analysis(cldat[[.x]], name = paste0("L2_E", .x), scale = 1, nfact = .y))
+v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% rownames_to_column() %>% tibble() %>% setNames(c("pix", "consensus2")) %>% full_join(v1 %>% rownames_to_column("pix"), by = "pix")
+
 # Classify unclassified L2 pixels 
-v1 <- v1 %>% split(.$consensus) %>% purrr::map(classify_by_neighbours, consensus2, maxdist = 3, res = 100) %>% bind_rows()
+#v1 <- v1 %>% split(.$consensus) %>% purrr::map(classify_by_neighbours, consensus2, maxdist = 3, res = 100) %>% bind_rows()
 
 ##### Create output rasters ###############
-out <- v1 %>% select(-all_of(good_models), -all_of(abiotic)) %>% 
+out <- v1 %>% dplyr::select(-all_of(good_models), -all_of(abiotic), -modT, -aspect) %>% 
   mutate(unit_h = paste0("E", consensus, "B", consensus2)
          #unit_d = paste0("env", consensus, "_sdm", V1), 
          #unit_r = paste0("sdm", V1, "_env", consensusA2)
          )
 
-rownames(out) <- paste(out$x, out$y, sep = "_")
+#rownames(out) <- paste(out$x, out$y, sep = "_")
 
 ## Make rasters #
 library(raster)
@@ -62,20 +63,27 @@ library(raster)
 #                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
 #                  nrows = 43002, ncols = 53002)
 
-unitsV6 <- raster(xmn = -2661766, xmx = 2614634, ymn = -2490071, ymx = 2321829,
+unitsV6 <- raster(xmn = -2661867, xmx = 2614735, ymn = -2490172, ymx = 2321930,
                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
                   resolution = 100) %>% setValues(NA) %>%
-  writeRaster(filename = "../Data/Typology/typ_V6_faHier_10v.tif")
+  writeRaster(filename = "../Data/Typology/typ_V7.tif", overwrite = TRUE)
 
+out$rastervalue <- out$unit_h %>% as.factor() %>% as.numeric()
+out <- out %>% filter(rastervalue != 27)
+cells <- cellFromXY(unitsV6, cbind(out$x, out$y))
+#out <- out[-which(is.na(cells)),]
 cells <- cellFromXY(unitsV6, cbind(out$x, out$y))
 values <- out$unit_h %>% as.factor() %>% as.numeric()
 
+#outsub <- out[8000001:nrow(out),]
+#cells <- cellFromXY(unitsV6, cbind(outsub$x, outsub$y))
+#values <- outsub$rastervalue
 unitsV6 <- update(unitsV6, cell = cells, v = values)
 
 #unitsV6[cellFromXY(unitsV6, cbind(out$x, out$y))] <- out$unit_h %>% as.factor() %>% as.numeric()
 
-#writeRaster(unitsV6, filename = "../Data/Typology/typV6_faHier_10v", 
-#            format = "GTiff", overwrite = TRUE)
+writeRaster(unitsV6, filename = "../Data/Typology/typV6_raw_10v", 
+            format = "GTiff", overwrite = TRUE)
 
 detach("package:raster", unload = TRUE)
 
