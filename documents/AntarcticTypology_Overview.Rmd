@@ -24,7 +24,7 @@ library(tinter)
 
 ### Introduction
 
-This candidate ecosystem typology for Antarctica was created for the purposes of classifying functional ecosystem types around Antarctica in a systematic environmental-geographic framework. It is intended to assist conservation and management decision making by providing three levels of complexity across the continent. It lends itself to understanding the true variation of ecosystems in Antarctica and performing risk assessments for these in the future. The typology focuses on permanently ice-free terrestrial areas of Antarctica and was produced at 100 m grid cell resolution. Because of the paucity of ecosystem data available for Antarctica, the classification is based primarily on Landsat-based environmental variables and secondarily on habitat suitability models for several key functional taxa. 
+This candidate ecosystem typology for Antarctica was created for the purposes of classifying functional ecosystem types around Antarctica in a systematic environmental-geographic framework. It is intended to assist conservation and management decision making by providing three levels of complexity across the continent. It lends itself to understanding the true variation of ecosystems in Antarctica and performing risk assessments for these in the future. The typology focuses on permanently ice-free terrestrial areas of Antarctica and was produced at 100 m grid cell resolution. Because of the paucity of ecosystem data available for Antarctica, the classification is based primarily on environmental variables derived from models or satellite imagery and secondarily on habitat suitability models for several key functional taxa. 
 
 ### Approach
 
