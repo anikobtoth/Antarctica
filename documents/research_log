@@ -540,5 +540,43 @@ The feedback can be broadly categorised into three groups
 Further, the text was updated to refer to units, habitats, and ecosystems by name whenever possible. I also re-ordered the codes of the units to grade generally from low to high elevation and make them easier to remember; consequently I need to redo the profiles as well in the new order. 
 
 
+8 March 2023
+
+Most comments have been addressed, Aleks and David making their own edits on the paper now. 
+Terminology changed to "major environmental units" for tier 1, "habitat complexes" for tier 2, and "regional ecosystem types" for the regional ecosystems. 
+
+Major environmental units have been re-ordered to make them easier to remember, going from lowest to highest elevation. Maps, figures, and appendices have to be redone to reflect this. Manuscript figures and appendix A has been done, appendix B still in progress. 
+
+3 May 2023
+
+Spent some time exploring alternative scaling schemes for the input data into the factor analysis tier 2. Discovered that alternative scaling schemes (no scaling and not logging the variables) result in clearly poor performance of the factor analysis when looking at spatial coherence of resulting classification. Therefore I elected to keep the same scaling scheme as I was already using: rescale values to [1:100] and take the natural logarithm. 
+
+A new draft of the paper has been circulated to a small group, including three people from BAS and Steven Chown. The draft has new figures to reflect the changes in the paper and a new map of Tier 1 with insets focused on particular areas of interest. Though requiring some restructuring and futher drill down on the methods, the changes needed now are relatively minor judging by the comments in this round. 
+
+4 August 2023 
+
+Near-final versions of the paper are circulating among the coauthors. 
+Did the 2022-23 milestone report today. 
+
+Since the last update, had extensive discussions about the scaling issues with the input data (including consult with Simon Wotherspoon at AAD). We are choosing to frame some new wording to help better justify our approach rather than redoing the classification. The approach we took is defensible, if unusual. Some changes to wording to better represent factor analysis outputs were discussed as well. 
+
+Here are notes from that session: 
+Stepped approach
+-	Step 1 env groups – major gradients identified a priori as relevant to all ecosystems
+-	Step 2 biotic groups – subgroups informed by presence of key spp (but species predictions are highly skewed, so need tansformation)
+Double log transform – suppresses diffs between large values – done twice for two reasons
+-	Very limited primary obs data – expected influential outliers
+-	Diffs between low abundance more ecologically informative than diffs between high abundance because the latter are driven by stochastic and transient factors including habitual behaviour rather than habitat suitability
+-	Single transformation was insufficient to address the extreme influence of this superabundance and produced no coherent relationships among groupings in environmental space, hence a second transformation was applied and revealed interpretable ecological patterns (show comparative plots in Supp Mat)
+Terminology 
+-	“Segment” (implying a portion of a gradient, and by association, of multiple gradients), could be the best intermediate term to use for the output of the factor analysis on the way to defining the ‘formal’ groupings of the typology (terms already decided for those). Segment would be better than facet, group and other suggested terms.
+Positive and negative loadings
+-	The negative loadings are fewer and weaker than the positives (potentially noise)
+-	The negative loadings are informative about absences, which may represent outcomes of competitive interactions, but the positive values of their competitors are more relevant to the classification
+
+In the current late stage of the project, main tasks are: 
+1. updating the wording of the methods in the manuscript
+2. Finalising the regional units and producing final maps for them. 
+3. Final round of edits from all coauthors. 
 
 
