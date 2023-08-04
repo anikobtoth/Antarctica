@@ -18,7 +18,7 @@ library(tidyr)
 ovl_area <- read_csv("../Data/Base/typV6_v1pl_areas.txt") # generated using TabulateAreas() in arcGIS
 ACBR_key <- readRDS("./data/ACBR_key.rds")
 habitats <- read_csv("./documents/Unit_descriptionsV6.csv") %>% 
-  select(-Distribution, -Description) %>% 
+  dplyr::select(-Distribution, -Description) %>% 
   filter(!is.na(Gridcode))
 
 area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = "area") %>% 
@@ -36,32 +36,47 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
   
   
 
- ggplot(area_summary %>% filter(ACBR_NAME != "South Orkney Islands"), aes(x = LCODE, fill = as.factor(env), y = area)) + 
-   geom_col() + facet_wrap(~ACBR_NAME, scales = "free", ncol = 3) + 
+ ggplot(area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% na.omit(), aes(x = as.factor(LCODE), fill = as.factor(env), y = area)) + 
+   geom_col() + facet_wrap(~ACBR_NAME, scales = "free_y", ncol = 3) + 
    scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
                      labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
-   labs(fill = "Unit", y = "Area (square km)", x = "Habitat") + 
+   labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") + 
    theme(axis.text.x = element_blank(), 
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
 
 ## summary of unit areas overall
-area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
-  group_by(env, LCODE, Name) %>% summarise(area = sum(area)) %>%
+area_summary %>% #filter(ACBR_NAME != "South Orkney Islands") %>% 
+  group_by(env, LCODE, Name) %>% dplyr::summarise(area = sum(area)) %>% na.omit() %>%
   ggplot(aes(x = LCODE, fill = as.factor(env), y = area)) + geom_col() + 
+  facet_grid(.~as.factor(env), scales = "free_x", space = "free") +
   scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
                     labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
-  labs(fill = "Unit", y = "Area (square km)", x = "Habitat") +
+  labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
   theme(axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5))
 
+# map of tier 1
+
+typv6 <- read_csv("./results/typv6.txt")
+typv6 <- typv6 %>% filter(RASTERVALU != -9999, RASTERVALU != 0, y < 2e06) %>% 
+  mutate(unit = ifelse(RASTERVALU %in% 1:4, 2, ifelse(RASTERVALU %in% 6:11, 4, ifelse(RASTERVALU %in% c(12:18, 400), 1, ifelse(RASTERVALU %in% 20:24, 3, ifelse(RASTERVALU %in% 26:31, 5, ifelse(RASTERVALU %in% c(100, 200, 300), 6, 7)))))))
+ggplot() +  
+  geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
+  coord_sf(datum = st_crs(3031)) +
+  geom_tile(data = typv6, aes(x = x, y = y, fill = unit, col = unit), lwd = 0.5)
+
+
 # summary of geothermal units
+
+ovl_area <- read_csv("../Data/Base/typV6_v2pl_areas.txt") # generated using TabulateAreas() in arcGIS
+
 area_summary %>% filter(super_unit %in% c(100, 200, 300)) %>% 
-  mutate(superunit = fct_recode(superunit, G1 = "volcanic", G2 = "dormant", G3 = "geothermal") %>% fct_relevel("G1")) %>%
-  group_by(superunit, unit = unit_h, env) %>% summarise(area = sum(area)) %>%
+  mutate(superunit = fct_recode(as.factor(super_unit), "volcanic" = "100", "dormant" = "200","geothermal" ="300")) %>%
+  group_by(superunit, unit = LCODE, env) %>% summarise(area = sum(area)) %>%
   ggplot(aes(x = unit, fill = as.factor(str_sub(unit, 1,2)), y = area)) + geom_col() + 
   scale_fill_manual(values = c(viridis(5))) +
   facet_grid(~superunit, scales = "free", space = "free")+
-  labs(fill = "Unit", y = "Area (square km)", x = "Biotic assemblage") +
+  labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
   theme(axis.text.x  = element_text(angle = 90), 
         panel.grid.minor = element_blank(), 
         panel.grid.major.x = element_blank()) +
