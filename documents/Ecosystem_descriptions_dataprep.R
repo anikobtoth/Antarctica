@@ -13,10 +13,16 @@ library(sf)
 source('./scripts/Helper_Functions.R')
 
 # Load data ####
+# verbal descriptions
+descr <- read_csv("./documents/Unit_descriptionsV6.csv")
+descr <- descr %>% filter(!grepl(pattern = "E[1-5]$|G$", LCODE))
 
-data <- readRDS("./results/ecodatV6.rds") %>%
-  mutate(unit_h = recode(unit_h, "volcanic" = "G1", "dormant" = "G2", "geothermal" = "G3", "rookery" = "E3B8", "lake" = "L"))
+# typology 
+data <- readRDS("./results/ecodatV6_2.rds") %>% filter(y < 2e06)
+  #mutate(unit_h = recode(unit_h, "volcanic" = "G1", "dormant" = "G2", "geothermal" = "G3", "rookery" = "E3B8", "lake" = "L"))
+#data <-  full_join(descr %>% dplyr::select(NEWCODE, LCODE), data, by = c("NEWCODE" = "unit_h"))
 
+#variables
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
              "elevation", "rugosity", "slope", "totPrecip", "solar", "DDm5")  #don't include ModT, aspect
 
@@ -38,21 +44,23 @@ bad_models <- c("adeliae.tif",
 antarctica <- st_read("../Data/Base", "Antarctic_landpoly") %>% 
   st_simplify(preserveTopology = TRUE, dTolerance = 2)
 
+#ACBRs
+acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(ACBR_ID != 2)
+acbr_ext <- acbrs %>% split(.$ACBR_Name) %>% 
+  purrr::map(~.x %>% st_bbox())
+acbr_ext <- acbr_ext[-9]
+
 # Occurrence data
 occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
 occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
 # Unit raster
 library(raster)
-typ_fah <- raster("../Data/Typology/typv6_v1pl")
+typ_fah <- raster("../Data/Typology/typv6_v1plSnp")
 
 # GBIF occurrence data
 GBIF_clean <- readRDS("./data/Species/GBIF_clean_data.rds")
 
-# verbal descriptions
-descr <- read_csv("./documents/Unit_descriptionsV6.csv")
-descr <- descr %>% filter(!grepl(pattern = "E[1-5]$|G$", LCODE))
-data <-  full_join(descr %>% dplyr::select(NEWCODE, LCODE), data, by = c("NEWCODE" = "unit_h"))
 # Format data #####
 # key <- out %>% mutate(typV6 = as.factor(unit_h) %>% as.numeric()) %>% 
 #   dplyr::select(unit_h, typV6) %>% distinct() %>% tibble() %>%
@@ -160,6 +168,7 @@ elev_table <- ecodatAb %>% filter(name == "elevation") %>%
   group_by(unit_h) %>% summarise(min = min(value, na.rm = T), 
                                   max = max(value, na.rm = T), 
                                   mean = mean(value, na.rm = T), 
+                                  median = median(value, na.rm = T),
                                   lower_90 = quantile(value, 0.05, na.rm = T), 
                                   upper_90 = quantile(value, 0.95, na.rm = T))
 
@@ -170,9 +179,9 @@ basemap <- ggplot() +
   geom_tile(data = slice(typ_df, sample(1:nrow(typ_df)), 2000000), aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.4)
 
 #### Generate reports ####
-units <- data %>% dplyr::select(typv6_v1pl, unit_h) %>% distinct() %>% arrange(typv6_v1pl)
+units <- data %>% dplyr::select(typv6_v1pl, LCODE) %>% distinct() %>% arrange(LCODE)
 typv6 <- units %>% pull(typv6_v1pl)
-unitnames <- units %>% pull(unit_h)
+unitnames <- units %>% pull(LCODE)
 count <- 0
 for(i in typv6) {
   count <- count + 1
