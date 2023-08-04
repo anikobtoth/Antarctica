@@ -3,7 +3,7 @@ library(sp)
 library(fields)
 library(BBmisc)
 library(psych)
-
+library(paran)
 library(rlang)
 library(gmp)
 
@@ -113,6 +113,14 @@ BP_translate <- function(nests, adults, chicks, ratios){
   
 }
 
+#### outlier function ####
+# to find distant outliers
+
+far_outliers <- function(v, c=10){
+  c(which(v < quantile(v, 0.25) - (c* IQR(v))),
+  which(v > quantile(v, 0.75) + (c* IQR(v))))
+}
+
 ##### DATA EXTRACTION ####
 # Extract abiotic data
 extract_env_dat <- function(xy){
@@ -141,22 +149,30 @@ extract_biotic_dat <- function(xy, good_models){
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
-factor_analysis <- function(dat, name, scale = TRUE){
-  message("Choosing number of factors")
+factor_analysis <- function(dat, name, scale = c(1,2), nfact=4){
+  message("Scaling data")
   dat <- dat %>% na.omit()
   rn <- rownames(dat)
-  if(scale) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
-  
-  paranal <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
-  nfact <- paranal$Retained
+  if(scale==1) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
+  if(scale==2){
+    counts <- read_csv("./data/Species/presence_count.csv") %>% 
+      mutate(name = Taxa %>% str_split(" ") %>% purrr::map_chr(last) %>% paste0(".tif"))
+    counts <- map_df(names(dat), ~counts[counts$name == .x, "Unique records"]) %>% pull(`Unique records`)
+
+    dat <- map2_df(dat, counts, function(x, y) x-log(y))
+  } 
+ 
+  rownames(dat) <- rn
+  #paranal3 <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
+  #nfact <- paranal$Retained
   message(paste("Factor analysis with", nfact, "factors"))  
   fa1 <- fa(dat, nfact, rotate = "varimax")
   saveRDS(fa1, paste0("./results/factor_analyses/fa_", name, ".rds"))
   saveRDS(dat, paste0("./results/factor_analyses/data_", name, ".rds"))
-  saveRDS(paranal, paste0("./results/factor_analyses/paran_", name, ".rds"))
+  #saveRDS(paranal, paste0("./results/factor_analyses/paran_", name, ".rds"))
   sc <- data.frame(fa1$scores)
   
-  consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)
+  consensus <- apply(sc, 1, which.max) %>% factor() #%>% setNames(rn)
   
   return(consensus)
 }
@@ -187,8 +203,8 @@ classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 1000){
   if(nrow(v0) > 0){
     v2 <- v2 %>% filter(x %in% unique(v0$x, v0$x+res, v0$x - res) & y %in% unique(v0$y, v0$y+res, v0$y - res))
     temp <- v2[rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, which.min),] %>% 
-      select(x, y, lon, lat, {{var}}) %>% 
-      mutate(dist = rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, min)) %>% select({{var}}, dist)
+      dplyr::select(x, y, lon, lat, {{var}}) %>% 
+      mutate(dist = rdist.earth(v0[,c("lon", "lat")], v2[,c("lon", "lat")], miles = F) %>% apply(1, min)) %>% dplyr::select({{var}}, dist)
     temp <- data.frame(x = v0$x, y = v0$y, temp) %>% filter(dist < maxdist)
     message(paste("Classifying", nrow(temp), "unclassified pixels."))
     dat[paste(temp$x, temp$y, sep = "_"),][[as.character(enquo(var))[2]]] <- temp[[as.character(enquo(var))[2]]]
@@ -280,6 +296,44 @@ map_mosaic <- function(df.grids){
   #plotcmd <- paste0("plot_grid(", cmd, ", nrow = ", nrows, ")")
   plotcmd <- paste0("(", cmd, ")")
   return(plotcmd)
+}
+
+
+map_mosaic2 <- function(df.grids){
+  
+  width <-  df.grids %>% purrr::map_dbl(~return(.x["xmax"] - .x['xmin']))
+  height <-  df.grids %>% purrr::map_dbl(~return(.x["ymax"] - .x['ymin']))
+  aspect <- width/height
+  
+  centrx <- df.grids %>% purrr::map_dbl(~return(mean(.x["xmax"], .x['xmin'])))
+  centry <- df.grids %>% purrr::map_dbl(~return(mean(.x["ymax"], .x['ymin'])))
+  
+  wide <- which(aspect >= 1.1)
+  tall <- which(aspect <= 0.9)
+  square <- which(aspect > 0.9 & aspect < 1.1)
+  
+  if(length(wide) < length(tall)) wide <- c(wide, square) else tall <- c(tall, square)
+  
+  tallside <- centrx[tall] < 0 ## TRUE - left; FALSE - right
+  wideside <- centry[wide] < 0 ## TRUE - bottom; FALSE - top
+  
+  top <- names(which(!wideside))
+  bottom <- names(which(wideside))
+  left <- names(which(tallside))
+  right <- names(which(!tallside))
+  
+  if(length(top) > 0) top <- paste("plot_grid(", paste0("insets$`", top, "` + theme(legend.position = 'none')", collapse = ","), ", nrow = 1)") else top <- NA
+  if(length(bottom) > 0) bottom <- paste("plot_grid(", paste0("insets$`", bottom, "` + theme(legend.position = 'none')", collapse = ","), ", nrow = 1)") else bottom <- NA
+  if(length(left) > 0) left <- paste("plot_grid(", paste0("insets$`", left, "` + theme(legend.position = 'none')", collapse = ","), ", ncol = 1)") else left <- NA
+  if(length(right) > 0) right <- paste("plot_grid(", paste0("insets$`", right, "` + theme(legend.position = 'none')", collapse = ","), ", ncol = 1)") else rigth <- NA
+  
+  top <- eval(parse(text = top))
+  bottom <- eval(parse(text = bottom))
+  left <- eval(parse(text = left))
+  right <- eval(parse(text = right))
+  
+  plot_grid(left, plot_grid(top, T1, bottom, ncol = 1), right, nrow = 1)
+  
 }
 
 #### Mapping ######
