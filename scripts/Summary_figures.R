@@ -45,15 +45,47 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
 
+## Name abbreviations
+ 
+area_summary <- area_summary %>% 
+  mutate(Name_abbr = Name %>% 
+            str_replace_all("land", "l") %>% 
+            str_replace_all("Sunny", "Sun.") %>% 
+            str_replace_all("exposed", "exp.") %>%
+            str_replace_all("Exposed", "Exp.") %>%
+            str_replace_all("sheltered", "shel.") %>%
+            str_replace_all("Sheltered", "shel.") %>%
+            str_replace_all("coastal", "cstl.") %>%
+            str_replace_all("outcrops", "outc.") %>%
+            str_replace_all("meltwater-eroded", "melt.") %>%
+            str_replace_all("meltwater", "melt.") %>%
+            str_replace_all("moraine fields", "morf.") %>%
+            str_replace_all("Meltwater-eroded", "Melt.") %>%
+            str_replace_all("escarpments", "escrp.") %>%
+            str_replace_all("mountain slopes", "msl.") %>%
+            str_replace_all("slopes", "sl.") %>%
+            str_replace_all("and", "&") %>%
+            str_replace_all("inclines", "incl.") %>%
+            str_replace_all("plateaus", "plat.") %>%
+            str_replace_all("nunatak faces &", "") %>% 
+            str_replace_all("nunatak", "ntk.") %>% 
+            str_replace_all("fringes", "") %>% 
+            str_replace_all("screes", "scr.") %>% 
+            str_replace_all("ecosystems", "") %>% 
+            str_replace_all("geothermal", "geoth.") %>% 
+            str_replace_all("volcanic", "volc") %>% 
+            str_replace_all("transitional", "trans.") %>% 
+            str_replace_all("  ", " "))
+ 
 ## summary of unit areas overall
-area_summary %>% #filter(ACBR_NAME != "South Orkney Islands") %>% 
-  group_by(env, LCODE, Name) %>% dplyr::summarise(area = sum(area)) %>% na.omit() %>%
-  ggplot(aes(x = LCODE, fill = as.factor(env), y = area)) + geom_col() + 
+area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+  group_by(env, LCODE, Name, Name_abbr) %>% dplyr::summarise(area = sum(area)) %>% na.omit() %>%
+  ggplot(aes(x = paste(LCODE, Name_abbr, sep = "-"), fill = as.factor(env), y = area)) + geom_col() + 
   facet_grid(.~as.factor(env), scales = "free_x", space = "free") +
   scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
                     labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
   labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
-  theme(axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0.5))
+  theme(axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0))
 
 # map of tier 1
 
@@ -68,19 +100,27 @@ ggplot() +
 
 # summary of geothermal units
 
-ovl_area <- read_csv("../Data/Base/typV6_v2pl_areas.txt") # generated using TabulateAreas() in arcGIS
+ovl_area <- read_csv("../Data/Base/typV6_v2pl_areas.csv") # generated using TabulateAreas() in arcGIS
 
-area_summary %>% filter(super_unit %in% c(100, 200, 300)) %>% 
-  mutate(superunit = fct_recode(as.factor(super_unit), "volcanic" = "100", "dormant" = "200","geothermal" ="300")) %>%
+ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = "area") %>% 
+  dplyr::select(-Rowid) %>% mutate(habitat = as.numeric(word(habitat, 2,2, "_")), 
+                                    area = area/1000000) %>% 
+  filter(habitat > 99, habitat < 400, ACBR_NAME != "South Orkney Islands", area > 0.5) %>%
+  left_join(ACBR_key, by = c("ACBR_NAME" = "ACBR_Name")) %>% 
+  mutate(super_unit = (habitat %/% 100)*100, 
+         Gridcode = habitat%%100) %>%
+  left_join(habitats, by = "Gridcode") %>%
+  mutate(plot_unit = LCODE) %>%
+  mutate(env = str_sub(LCODE, 1,2), 
+         superunit = fct_recode(as.factor(super_unit), "G1" = "100", "G2" = "200","G3" ="300")) %>% 
   group_by(superunit, unit = LCODE, env) %>% summarise(area = sum(area)) %>%
   ggplot(aes(x = unit, fill = as.factor(str_sub(unit, 1,2)), y = area)) + geom_col() + 
   scale_fill_manual(values = c(viridis(5))) +
   facet_grid(~superunit, scales = "free", space = "free")+
   labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
-  theme(axis.text.x  = element_text(angle = 90), 
+  theme(axis.text.x  = element_text(angle = 90, vjust = 0.3), 
         panel.grid.minor = element_blank(), 
-        panel.grid.major.x = element_blank()) +
-  scale_y_log10()
+        panel.grid.major.x = element_blank()) 
 
 
 ## endemics 
