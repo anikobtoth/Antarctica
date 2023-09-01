@@ -2,115 +2,136 @@
 library(dplyr)
 library(purrr)
 library(tidyr)
-library(raster)
+library(terra)
 library(sf)
 
-epsg3031 <- CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs")
-out <- readRDS("./results/out_TYP_hier_units_V5.rds")
-acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016")
+#epsg3031 <- CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs")
+#out <- readRDS("./results/out_TYPV6.rds")
+#typ_df from ecosystem descriptions dataprep
+acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(ACBR_ID != 2)
+epsg3031 <- st_crs(acbrs)
 ACBR_key <- readRDS("./data/ACBR_key.rds")
 
-units <- out %>% SpatialPointsDataFrame(coords = .[,c('x', 'y')], data = ., proj4string = epsg3031) %>%
-  st_as_sf(crs = epsg3031)
+units <- typ_df %>% st_as_sf(coords = c("x", "y")) %>% st_set_crs(epsg3031) %>% 
+  mutate(unit = word(LCODE, 1,1, sep = "B"))
+
 
 # raw intersection of typology and ACBRs
 ru <- st_intersection(units, acbrs, tolerance = 50)
-ru$ru <- paste(ru$ACBR_Name, ru$unit_h, sep = "_")
+ru$ru <- paste(ru$ACBR_Name, ru$LCODE, sep = "_")
+excepted_rus <- ru %>% filter(grepl(.$unit, pattern = "G|L") | LCODE == "E1B8") ## exclude overlays
+ru <- ru %>% filter(!(grepl(.$unit, pattern = "G[1-3]|L") | LCODE == "E1B8")) ## exclude overlays
 
+rm(data, units, typ_df, descr)
 # identify ACBR neighbours
 acbr_nbrs <- acbrs %>% split(.$ACBR_ID) %>% 
-  purrr::map(~.x %>% st_bbox() %>% extent() %>% as("SpatialPolygons")) %>% 
-  reduce(rbind, makeUniqueIDs = TRUE) %>% 
-  st_as_sf() %>% 
+  purrr::map(~.x %>% st_bbox() %>% st_as_sfc() %>% st_as_sf()) %>% 
+  bind_rows(.id = "ACBR_ID") %>% 
   st_buffer(200) %>%
   st_intersection() %>%
   filter(n.overlaps > 1) %>% 
   st_set_crs(epsg3031)
 
+merge.out <- ru_logicTree(ru, 5000)
 
-#ru_meds <- ru %>% split(.$consensus)
-merge.out <- list()
-#ru1 <- ru_meds[[1]]
-for(MED in 1:length(unique(ru$consensus))){
-  ru1 <- ru %>% filter(consensus == MED)
-  
-  rus <- unique(ru1$ru)
-  merge.names <- list()
-  
-  for(i in 1:length(rus)){
-    curr.runit <- ru1 %>% filter(ru == rus[i])
-    curr.ecosys <- curr.runit$unit_h[1]
-    curr.acbr <- curr.runit$ACBR_ID[1]
-    search.area <- acbr_nbrs %>% filter(purrr::map_lgl(acbr_nbrs$origins, ~curr.acbr %in% .x))
-    adjacent <- 0    
-    
-    # are there adjacent bioregions? 
-    if(nrow(search.area) > 0){
-      adjacent <- numeric(nrow(search.area)) %>% setNames(search.area$origins %>% reduce(c) %>% `[`(which(.!= curr.acbr)))
-      # if so, are there adjacent pixels of the same unit in adjacent bioregions?
-      for(j in 1:nrow(search.area)){
-        curr.runit.sa <- st_intersection(curr.runit, search.area[j,])
-        ru1.sa <- ru1 %>% filter(unit_h == curr.ecosys, ACBR_ID != curr.acbr) %>% 
-          st_intersection(search.area[j,])
-        adj.pix <- st_distance(curr.runit.sa, ru1.sa)
-        adjacent[j] <- length(which(as.numeric(adj.pix) < 150))
-      }}
-    
-    # if smaller runit, check for adjacent units in the same MED and ACBR
-    if(nrow(curr.runit) < 5000){
-      med.units <- unique(ru1$unit_h)
-      adjacentB <- rep(0, length(med.units)) %>% setNames(med.units)
-      for(j in 1:length(med.units)){
-        if(med.units[j] != curr.ecosys){
-          ru1.acbr <- ru1 %>% filter(ACBR_ID == curr.acbr, unit_h == med.units[j])
-          adj.pix <- st_distance(curr.runit, ru1.acbr)
-          adjacentB[j] <- length(which(as.numeric(adj.pix) < 150))
-        }
-      }
-    }
-    
-    if(nrow(curr.runit) >= 5000 && sum(adjacent) > 0){
-      # merge with highest adjacency neighbour.
-      merge.acbr <- names(which.max(adjacent))
-      merge.names[[i]] <- ru1$ru[which(ru1$unit_h == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
-    } else if (nrow(curr.runit) >= 5000 && sum(adjacent) == 0){
-      merge.names[[i]] <- unique(curr.runit$ru)
-    } 
-    
-    if(nrow(curr.runit) < 5000 && sum(adjacent) == 0) {
-      if(sum(adjacentB) > 0){
-        # merge with highest adjacency unit in same acbr and med
-        merge.ru <- names(which.max(adjacentB))
-        merge.names[[i]] <- ru1$ru[which(ru1$unit_h %in% c(curr.ecosys, merge.ru) & ru1$ACBR_ID == curr.acbr)] %>% unique()
-      }else{
-        # Discard
-        merge.names[[i]] <- NA
-      }
-    }
-    if(nrow(curr.runit) < 5000 && sum(adjacent) > 0){
-      if(sum(adjacentB) == 0){
-        # merge with highest adjacency A
-        merge.acbr <- names(which.max(adjacent))
-        merge.names[[i]] <- ru1$ru[which(ru1$unit_h == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
-      }else{
-        if(max(adjacentB) > 2*max(adjacent)){
-          # merge with most adjacent B
-          merge.ru <- names(which.max(adjacentB))
-          merge.names[[i]] <- ru1$ru[which(ru1$unit_h %in% c(curr.ecosys, merge.ru) & ru1$ACBR_ID == curr.acbr)] %>% unique()
-        }else{
-          # merge with most adjacent A
-          merge.acbr <- names(which.max(adjacent))
-          merge.names[[i]] <- ru1$ru[which(ru1$unit_h == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
-        }
-      }
-    }
-  }
-  merge.out <- c(merge.out, merge.names)
-}
-
-final_runits <- merge.out %>% reduce(makeunits) %>% arrange(final)
+final_runits <- merge.out[!map_lgl(merge.out, is.null)] %>% 
+  reduce(makeunits) %>% arrange(final)
 ru <- left_join(ru, final_runits, by = c("ru" = "raw"), )
-saveRDS(ru, "./results/RegionalUnitsV5.rds")
+
+# number regional units with no merges
+flagged_small <- ru %>% filter(is.na(final))
+flagged_small$final <- flagged_small$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
+ru <- ru %>% filter(!is.na(final)) %>% rbind(flagged_small)
+
+## add excepted rus back in.
+excepted_rus$final <- excepted_rus$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
+ru <- rbind(ru, excepted_rus)
+
+saveRDS(ru, "./results/RegionalUnitsV6_3.rds")
+
+# Regional Units helper functions
+ru_logicTree <- function(ru, size_threshold = 2000){
+  merge.out <- list()
+  
+  for(MEU in unique(ru$unit)){
+    ru1 <- ru %>% filter(unit == MEU)
+    
+    rus <- unique(ru1$ru)
+    merge.names <- list()
+    
+    for(i in 1:length(rus)){
+      curr.runit <- ru1 %>% filter(ru == rus[i])
+      curr.ecosys <- curr.runit$LCODE[1]
+      curr.acbr <- curr.runit$ACBR_ID[1]
+      search.area <- acbr_nbrs %>% filter(purrr::map_lgl(acbr_nbrs$origins, ~curr.acbr %in% .x))
+      adjacent <- 0    
+      
+      # are there adjacent bioregions? 
+      if(nrow(search.area) > 0){
+        adjacent <- numeric(nrow(search.area)) %>% setNames(search.area$origins %>% reduce(c) %>% `[`(which(.!= curr.acbr)))
+        # if so, are there adjacent pixels of the same unit in adjacent bioregions?
+        for(j in 1:nrow(search.area)){
+          curr.runit.sa <- st_intersection(curr.runit, search.area[j,])
+          ru1.sa <- ru1 %>% filter(LCODE == curr.ecosys, ACBR_ID != curr.acbr) %>% 
+            st_intersection(search.area[j,])
+          adj.pix <- st_distance(curr.runit.sa, ru1.sa)
+          adjacent[j] <- length(which(as.numeric(adj.pix) < 150))
+        }}
+      
+      # if smaller runit, check for adjacent units in the same MEU and ACBR
+      if(nrow(curr.runit) < size_threshold){
+        MEU.units <- unique(ru1$LCODE)
+        adjacentB <- rep(0, length(MEU.units)) %>% setNames(MEU.units)
+        for(j in 1:length(MEU.units)){
+          if(MEU.units[j] != curr.ecosys){
+            ru1.acbr <- ru1 %>% filter(ACBR_ID == curr.acbr, LCODE == MEU.units[j])
+            adj.pix <- st_distance(curr.runit, ru1.acbr)
+            adjacentB[j] <- length(which(as.numeric(adj.pix) < 150))
+          }
+        }
+      }
+      
+      if(nrow(curr.runit) >= size_threshold && sum(adjacent) > 0){
+        # merge with highest adjacency neighbour.
+        merge.acbr <- names(which.max(adjacent))
+        merge.names[[i]] <- ru1$ru[which(ru1$LCODE == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
+      } else if (nrow(curr.runit) >= size_threshold && sum(adjacent) == 0){
+        merge.names[[i]] <- unique(curr.runit$ru)
+      } 
+      
+      
+      if(nrow(curr.runit) < size_threshold && sum(adjacent) == 0) {
+        if(max(adjacentB) > nrow(curr.runit)*0.05){ # at least 5% of unit pixels must be adjacent with merge candidate.
+          # merge with highest adjacency unit in same acbr and MEU
+          merge.ru <- names(which.max(adjacentB))
+          merge.names[[i]] <- ru1$ru[which(ru1$LCODE %in% c(curr.ecosys, merge.ru) & ru1$ACBR_ID == curr.acbr)] %>% unique()
+        }else{
+          # Discard
+          merge.names[[i]] <- NA
+        }
+      }
+      if(nrow(curr.runit) < size_threshold && sum(adjacent) > 0){
+        if(sum(adjacentB) == 0){
+          # merge with highest adjacency A
+          merge.acbr <- names(which.max(adjacent))
+          merge.names[[i]] <- ru1$ru[which(ru1$LCODE == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
+        }else{
+          if(max(adjacentB) > 2*max(adjacent)){
+            # merge with most adjacent B
+            merge.ru <- names(which.max(adjacentB))
+            merge.names[[i]] <- ru1$ru[which(ru1$LCODE %in% c(curr.ecosys, merge.ru) & ru1$ACBR_ID == curr.acbr)] %>% unique()
+          }else{
+            # merge with most adjacent A
+            merge.acbr <- names(which.max(adjacent))
+            merge.names[[i]] <- ru1$ru[which(ru1$LCODE == curr.ecosys & ru1$ACBR_ID %in% as.numeric(c(merge.acbr, curr.acbr)))] %>% unique()
+          }
+        }
+      }
+    }
+    merge.out <- c(merge.out, merge.names)
+  }
+  return(merge.out)
+}
 
 makeunits <- function(a, b){
   #if(is.na(a)) {return(data.frame("raw" = b, "final" = 1))}
@@ -151,7 +172,7 @@ for(i in unique(ru$final) %>% na.omit %>% as.numeric){
   
 }
 
-saveRDS(p, "./results/RegionalUnitsV5_plots.rds")
+saveRDS(p, "./results/RegionalUnitsV6_plots.rds")
 
 m <- numeric()
 for(i in unique(ru$final) %>% na.omit %>% as.numeric){
