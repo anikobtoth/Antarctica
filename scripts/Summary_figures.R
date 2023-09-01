@@ -5,16 +5,8 @@ library(readr)
 library(stringr)
 library(tidyr)
 
-## Summary of unit areas distribution in ACBRs
-  # ovl_area <- read_csv("../Data/Base/IFA_Unit_areas.txt")
-  # area_summary <- ovl_area %>% group_by(gridcode, ACBR_Name) %>% summarise(area = sum(Shape_Area)/1000000)
-  # area_summary <- data.frame(gridcode = unique(area_summary$gridcode), env = rep(1:6, times = c(5,4,5,5,5,7))) %>% 
-  #   merge(area_summary, by = "gridcode")
-  # ggplot(area_summary, aes(x = gridcode, fill = as.factor(env), y = area)) + geom_col() + 
-  #   facet_wrap(~ACBR_Name, scales = "free") + scale_fill_viridis(discrete = TRUE) + labs(fill = "Env group") + 
-  #   theme(legend.position = c(0.85, 0.1))
 
-## Summary of unit areas distribution in ACBRs V5
+## Summary of unit areas distribution in ACBRs V6
 ovl_area <- read_csv("../Data/Base/typV6_v1pl_areas.txt") # generated using TabulateAreas() in arcGIS
 ACBR_key <- readRDS("./data/ACBR_key.rds")
 habitats <- read_csv("./documents/Unit_descriptionsV6.csv") %>% 
@@ -44,7 +36,34 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
    theme(axis.text.x = element_blank(), 
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
+ 
+ # Bubble plots 
+ area_summary %>% filter(ACBR_NAME != "South Orkney Islands", area >= 50) %>% 
+   na.omit() %>%
+   ggplot(aes(x = LCODE, y = ACBR_NAME, col = area, size = area)) + geom_point() +
+   scale_color_viridis() +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
+# by proportion 
+ area_summary %>% group_by(ACBR_NAME) %>% summarise(ACBR_area = sum(area)) %>%
+   full_join(area_summary) %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+   na.omit() %>% mutate(proportion = area/ACBR_area) %>% 
+   filter(proportion > 0.05) %>%
+   ggplot(aes(x = LCODE, y = ACBR_NAME, col = proportion, size = area)) + geom_point() +
+   scale_color_viridis() + scale_size_area(breaks = c(50, 250, 500, 1000, 1500, 2000)) +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+ 
+ 
+ area_summary %>% group_by(ACBR_NAME) %>% summarise(ACBR_area = sum(area)) %>%
+   full_join(area_summary) %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+   na.omit() %>% mutate(proportion = area/ACBR_area) %>% 
+   filter(proportion > 0.05) %>%
+   ggplot(aes(x = LCODE, y = ACBR_NAME, col = area, size = proportion)) + geom_point() +
+   scale_color_viridis() +
+   labs(x = "Habitat Complex") +
+   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+         axis.title.y = element_blank())
+ 
 ## Name abbreviations
  
 area_summary <- area_summary %>% 
