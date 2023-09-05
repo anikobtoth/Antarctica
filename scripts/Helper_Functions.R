@@ -3,9 +3,9 @@ library(sp)
 library(fields)
 library(BBmisc)
 library(psych)
-library(paran)
+
 library(rlang)
-library(gmp)
+#library(gmp)
 
 
 ##### DATA MANIPULATION #####
@@ -113,12 +113,10 @@ BP_translate <- function(nests, adults, chicks, ratios){
   
 }
 
-#### outlier function ####
-# to find distant outliers
-
-far_outliers <- function(v, c=10){
-  c(which(v < quantile(v, 0.25) - (c* IQR(v))),
-  which(v > quantile(v, 0.75) + (c* IQR(v))))
+# Outliers function
+far_outliers <- function(v){
+  c(which(v < quantile(v, 0.25) - (3.5* IQR(v))),
+    which(v > quantile(v, 0.75) + (3.5* IQR(v))))
 }
 
 ##### DATA EXTRACTION ####
@@ -149,22 +147,15 @@ extract_biotic_dat <- function(xy, good_models){
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
-factor_analysis <- function(dat, name, scale = c(1,2), nfact=4){
-  message("Scaling data")
+factor_analysis <- function(dat, name, scale = TRUE){
+  message("Choosing number of factors")
   dat <- dat %>% na.omit()
   rn <- rownames(dat)
-  if(scale==1) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
-  if(scale==2){
-    counts <- read_csv("./data/Species/presence_count.csv") %>% 
-      mutate(name = Taxa %>% str_split(" ") %>% purrr::map_chr(last) %>% paste0(".tif"))
-    counts <- map_df(names(dat), ~counts[counts$name == .x, "Unique records"]) %>% pull(`Unique records`)
-
-    dat <- map2_df(dat, counts, function(x, y) x-log(y))
-  } 
- 
-  rownames(dat) <- rn
-  #paranal3 <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
+  if(scale) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
+  
+  #paranal <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
   #nfact <- paranal$Retained
+  nfact <- 5
   message(paste("Factor analysis with", nfact, "factors"))  
   fa1 <- fa(dat, nfact, rotate = "varimax")
   saveRDS(fa1, paste0("./results/factor_analyses/fa_", name, ".rds"))
@@ -172,7 +163,7 @@ factor_analysis <- function(dat, name, scale = c(1,2), nfact=4){
   #saveRDS(paranal, paste0("./results/factor_analyses/paran_", name, ".rds"))
   sc <- data.frame(fa1$scores)
   
-  consensus <- apply(sc, 1, which.max) %>% factor() #%>% setNames(rn)
+  consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)
   
   return(consensus)
 }
@@ -180,13 +171,13 @@ factor_analysis <- function(dat, name, scale = c(1,2), nfact=4){
 # wrapper for predict function that cleans and scales the 
 # input data while saving pixel IDs and then uses input fa object to predict scores
 fapred <- function(data, cols, faobj, olddat){
- message("formatting data")
-   cldat <- data %>% dplyr::select(pixID, all_of(cols)) %>% na.omit() 
+  message("formatting data")
+  cldat <- data %>% dplyr::select(pixID, all_of(cols)) %>% na.omit() 
   pixID <- cldat$pixID
   cldat <- cldat %>% dplyr::select(-pixID) %>% 
     sapply(function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% 
     data.frame()
- message("calculating predictions") 
+  message("calculating predictions") 
   typ <- predict(faobj, data = cldat, old.data = olddat) %>% 
     apply(1, which.max) %>% data.frame(pixID, typ = .)
   
@@ -298,15 +289,14 @@ map_mosaic <- function(df.grids){
   return(plotcmd)
 }
 
-
 map_mosaic2 <- function(df.grids){
   
   width <-  df.grids %>% purrr::map_dbl(~return(.x["xmax"] - .x['xmin']))
   height <-  df.grids %>% purrr::map_dbl(~return(.x["ymax"] - .x['ymin']))
   aspect <- width/height
   
-  centrx <- df.grids %>% purrr::map_dbl(~return(mean(.x["xmax"], .x['xmin'])))
-  centry <- df.grids %>% purrr::map_dbl(~return(mean(.x["ymax"], .x['ymin'])))
+  centrx <- df.grids %>% purrr::map_dbl(~return(mean(c(.x["xmax"], .x['xmin']))))
+  centry <- df.grids %>% purrr::map_dbl(~return(mean(c(.x["ymax"], .x['ymin']))))
   
   wide <- which(aspect >= 1.1)
   tall <- which(aspect <= 0.9)
@@ -314,26 +304,49 @@ map_mosaic2 <- function(df.grids){
   
   if(length(wide) < length(tall)) wide <- c(wide, square) else tall <- c(tall, square)
   
-  tallside <- centrx[tall] < 0 ## TRUE - left; FALSE - right
-  wideside <- centry[wide] < 0 ## TRUE - bottom; FALSE - top
+  tall <- sort(centrx[tall])
+  wide <- sort(centry[wide], decreasing = T)
   
-  top <- names(which(!wideside))
-  bottom <- names(which(wideside))
-  left <- names(which(tallside))
-  right <- names(which(!tallside))
+  if(length(tall) < 3){tallside <- centrx[names(tall)] < 0} else { tallside <-tall < median(tall)}  ## TRUE - left; FALSE - right
+  if(length(wide) < 3){wideside <- centry[names(wide)] < 0} else {wideside <- !wide > median(wide)} ## TRUE - bottom; FALSE - top
   
-  if(length(top) > 0) top <- paste("plot_grid(", paste0("insets$`", top, "` + theme(legend.position = 'none')", collapse = ","), ", nrow = 1)") else top <- NA
-  if(length(bottom) > 0) bottom <- paste("plot_grid(", paste0("insets$`", bottom, "` + theme(legend.position = 'none')", collapse = ","), ", nrow = 1)") else bottom <- NA
-  if(length(left) > 0) left <- paste("plot_grid(", paste0("insets$`", left, "` + theme(legend.position = 'none')", collapse = ","), ", ncol = 1)") else left <- NA
-  if(length(right) > 0) right <- paste("plot_grid(", paste0("insets$`", right, "` + theme(legend.position = 'none')", collapse = ","), ", ncol = 1)") else rigth <- NA
+  top <- names(which(!wideside))[order(centrx[names(which(!wideside))])]
+  bottom <- names(which(wideside))[order(centrx[ names(which(wideside))])]
+  left <- names(which(tallside))[order(centry[names(which(tallside))], decreasing = T)]
+  right <- names(which(!tallside))[order(centry[names(which(!tallside))], decreasing = T)]
+  
+  topHeight <- 0
+  botHeight <- 0
+  leftWidth <- 0
+  rightWidth <- 0 
+  
+  if(length(top) > 0){
+    top <-    paste("plot_grid(", paste0("insets$`", top,   "` + theme(legend.position = 'none') + labs(subtitle = '", top, "')", collapse = ","), ", nrow = 1)")
+    topHeight <- 0.4
+  } else top <- NA    
+  if(length(bottom) > 0){
+    bottom <- paste("plot_grid(", paste0("insets$`", bottom,"` + theme(legend.position = 'none') + labs(subtitle = '", bottom, "')", collapse = ","), ", nrow = 1)") 
+    botHeight <- 0.4
+  } else bottom <- NA  
+  if(length(left) > 0){
+    left <-   paste("plot_grid(", paste0("insets$`", left,  "` + theme(legend.position = 'none') + labs(subtitle = '", left, "')", collapse = ","), ", ncol = 1)") 
+    leftWidth <- 0.35
+  } else left <- NA    
+  if(length(right) > 0){
+    right <-  paste("plot_grid(", paste0("insets$`", right, "` + theme(legend.position = 'none') + labs(subtitle = '", right, "')", collapse = ","), ", ncol = 1)") 
+    rightWidth <- 0.35
+  }  else right <- NA
   
   top <- eval(parse(text = top))
   bottom <- eval(parse(text = bottom))
   left <- eval(parse(text = left))
   right <- eval(parse(text = right))
   
-  plot_grid(left, plot_grid(top, T1, bottom, ncol = 1), right, nrow = 1)
-  
+  if(length(tall)> length(wide)){
+    plot_grid(left, plot_grid(top, T1, bottom, ncol = 1, rel_heights = c(topHeight, 1, botHeight)), right, nrow = 1, rel_widths = c(leftWidth, 1, rightWidth), align = "none")
+  } else {
+    plot_grid(top, plot_grid(left, T1, right, nrow = 1, rel_widths = c(leftWidth, 1, rightWidth)), bottom, ncol = 1, rel_heights = c(topHeight, 1, botHeight), align = "none")
+  }
 }
 
 #### Mapping ######
