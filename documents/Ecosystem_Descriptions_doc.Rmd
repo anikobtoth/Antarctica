@@ -17,22 +17,21 @@ library(knitr)
 library(DT)
 library(patchwork)
 library(flextable)
-
-knitr::knit_hooks$set(crop = knitr::hook_pdfcrop)
+library(dbscan)
 
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
 
 ```
 
-## Habitat Complex `r unitname`
+## Habitat Complex `r descr[count,] %>% pull(LCODE)`
 #### `r descr[count,] %>% pull(Name)`
 `r descr[count,] %>% pull(Description)`
 
 ### Photos (if available)
 
 ```{r pictures, echo=FALSE, message=FALSE, warning=FALSE}
-pictures <- list.files(path = "../../Images/V6", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
+pictures <- list.files(path = "../images", pattern = unitname, full.names = TRUE) %>% grep(pattern = "XX", value = TRUE)
 
 show_pictures <- length(pictures)>0
 
@@ -51,110 +50,85 @@ for(i in seq_along(pictures)){
 
 `r descr[count,] %>% pull(Distribution)`
 
-Maps - Full map
+Full + regional maps
 
-```{r full map, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE, crop = TRUE}
+```{r full map, fig.width = 12, fig.height = 12, echo=FALSE, message=FALSE, warning=FALSE}
+
  # Full map
-  basemap +
-    geom_tile(data=unit, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.8) +
+T1 <-  basemap +
+    geom_tile(data=unit %>% slice_sample(n = 20000), aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.4) +
     scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
     labs(x = "x", y = "y", col = "habitat", fill = "habitat") + 
     theme(legend.position = c(0.1, 0.1), axis.text = element_blank(), axis.ticks = element_blank())
-```
 
-Regional maps
-
-```{r inset maps, echo=FALSE, message=FALSE, warning=FALSE, crop = TRUE}
-  # smaller maps
-  #unit$cluster <- kmeans(unit[,c("x", "y")], centers = 10, iter.max = 100, nstart = 5)$cluster
-  #units <- unit %>% filter(cluster %in% which(table(unit$cluster) > 10000)) %>% split(.$cluster)
-  units <- purrr::map(acbr_ext, ~df_crop(unit, .x)) %>% 
-  `[`(purrr::map_int(., nrow) %>% `>`(5000) %>% which())
-  
-  # remove far outliers for mapping purposes
-  units <- purrr::map(units, ~if(length(c(far_outliers(.x$x), far_outliers(.x$y))) > 0) return(.x %>%    slice(-c(far_outliers(x), far_outliers(y)))) else return(.x))
-  df.grids <- units %>% lapply(geo_bounds, buff = 0.1)
-  ant_crops <- df.grids %>% lapply(function(x) st_crop(antarctica, x))
-  bgr_unit_crops <- df.grids %>% lapply(function(x) df_crop(data, x))
-  
-  subplots <- map2(ant_crops, bgr_unit_crops, function(x,y){
-    p <- ggplot() +  
-      geom_sf(data = x, fill="gray50", color= NA, size=0.25) + coord_sf(datum = st_crs(3031)) +
-      geom_tile(data = y, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) +
-           theme(legend.position = "none", 
-            plot.margin = unit(c(0,0,0,0), "cm"), 
-            axis.text = element_blank(), 
-            axis.title = element_blank()) +
-      scale_y_continuous(labels = scales::scientific) + scale_x_continuous(labels = scales::scientific) 
-    return(p)
-  })
-  
-  subplots <- map2(subplots, names(units), function(x, y){
-    p <- x + geom_tile(data = units[[y]], aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = .8) +
-      scale_fill_manual(values = c("#E0002D")) + scale_color_manual(values = c("#E0002D")) +
-      ggtitle(y) + theme(plot.title = element_text(size = 10))
-    return(p)
-  })
-  
-  subplots <- subplots %>% setNames(paste0("plot", 1:length(subplots)))
-  attach(subplots)
-  
-  #plotcmd <- paste0("plot_grid(", paste0("plot", order(aspect), collapse = ","),", rel_widths = width)")
-  plotcmd <- map_mosaic(df.grids)
+ units <- purrr::map(acbr_ext, ~df_crop(unit, .x)) %>% 
+  `[`(purrr::map_int(., nrow) %>% `>`(5000) %>% which()) %>% 
+   purrr::map(~if(length(c(far_outliers(.x$x), far_outliers(.x$y))) > 0){
+     return(.x %>% slice(-c(far_outliers(x), far_outliers(y))))
+   } else {return(.x)})
  
+ if(length(units)== 0){
+   units <- purrr::map(acbr_ext, ~df_crop(unit, .x)) %>% 
+  `[`(purrr::map_int(., nrow) %>% `>`(100) %>% which()) %>% 
+   purrr::map(~if(length(c(far_outliers(.x$x), far_outliers(.x$y))) > 0){
+     return(.x %>% slice(-c(far_outliers(x), far_outliers(y))))
+   } else {return(.x)})
+ }
+ 
+  df.grids <- units %>% lapply(geo_bounds, buff = 0.1)
+  
+T1 <- T1 + geom_rect(data = data.frame(reduce(df.grids, rbind)), aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax), fill = NA, color = "black", linewidth = 0.8, inherit.aes = FALSE)
 
-rm(ant_crops, bgr_unit_crops)
-subplots
-```
+insets <- purrr::map(df.grids, ~T1  + 
+                       coord_sf(xlim = c(.x["xmin"], .x["xmax"]), 
+                                ylim = c(.x["ymin"], .x["ymax"]), 
+                                expand = FALSE))
+  
+map_mosaic2(df.grids)
 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height = nrows*8, fig.width = 12}
- eval(parse(text = plotcmd))
-detach(subplots)
-rm(subplots)
 ```
 
 
 ### Environment
 
-The unit `r unitname` is part of Major Environmental Unit `r groupname`.
+The Habitat Complex `r unitname` is part of the Major Environmental Unit `r groupname`.
 
 ```{r calculate abiotic means, message=FALSE, warning=FALSE, include=FALSE}
-ecodatAb$f <- "continent"
-ecodatAb$f[grepl(pattern = groupname, ecodatAb$unit_h)] <- "env. unit"
-ecodatAb$f[ecodatAb$unit_h == unitname] <- "habitat"
-ecodatAb$f <- factor(ecodatAb$f, levels = c("continent", "env. unit", "habitat"))
+ecodatAb <- ecodatAb %>% mutate(f = ifelse(LCODE == unitname, "Habitat", 
+                                           ifelse(grepl(pattern = groupname, LCODE), "Maj. Env. Unit", 
+                                                  "continent")))
+ecodatAb$f <- factor(ecodatAb$f, levels = c("continent", "Maj. Env. Unit", "Habitat"))
 
 abioticMeans <- ecodatAb %>% group_by(name, f) %>% 
   summarise(mean = mean(value, na.rm = T)) %>% 
   pivot_wider(names_from = "f", values_from = "mean") %>% 
-  mutate(envgr_cont = ifelse(name == "meanTemp", continent/`env. unit`, `env. unit`/ continent), 
-         unit_envgr = ifelse(name == "meanTemp", `env. unit`/assemblage, assemblage / `env. unit`))  
-  
+  mutate(envgr_cont = ifelse(name == "meanTemp", continent/`Maj. Env. Unit`, `Maj. Env. Unit`/ continent), 
+         unit_envgr = ifelse(name == "meanTemp", `Maj. Env. Unit`/Habitat, Habitat / `Maj. Env. Unit`))  
+
 ```
 
-Unit `r groupname` is, on average, substantially higher in `r df2txt(abioticMeans, 1.25, type = "a")` than continental Antarctica. It is substantially lower in `r df2txt(abioticMeans, 0.75, type = "a")` than the rest of the continent.
+Major Environmental Unit `r groupname` is, on average, substantially higher in `r df2txt(abioticMeans, 1.25, type = "a")` than continental Antarctica. It is substantially lower in `r df2txt(abioticMeans, 0.75, type = "a")` than the rest of the continent.
 
-The elevation of unit `r unitname` ranges from `r round(elev_table$min[count])` to `r round(elev_table$max[count])` metres above sea level, but 90% of its pixels fall above `r round(elev_table$lower_90[count])` and below `r round(elev_table$upper_90[count])` metres. Its average elevation is `r round(elev_table$mean[count])` metres.
+The elevation of `r unitname` ranges from `r round(elev_table$min[count])` to `r round(elev_table$max[count])` metres above sea level, but 90% of its pixels fall above `r round(elev_table$lower_90[count])` and below `r round(elev_table$upper_90[count])` metres. Its median elevation is `r round(elev_table$median[count])` metres.
 
-The unit is higher in `r df2txt(abioticMeans, 1.25, type = "b")` and lower in `r df2txt(abioticMeans, 0.75, type = "b")` than the rest of its environmental supergroup.
+The Habitat Complex is higher in `r df2txt(abioticMeans, 1.25, type = "b")` and lower in `r df2txt(abioticMeans, 0.75, type = "b")` than the rest of Major Environmental Unit `r groupname`.
 
-#### Distinctiveness of the assemblage from its group and the rest of Antarctica
+#### Distinctiveness of the Habitat Complex from its group and the rest of Antarctica
 
-```{r abiotic boxplots, echo=FALSE, fig.height=6, fig.width=9, message=FALSE, warning=FALSE}
-
-ggplot(ecodatAb %>% slice(sample(1:nrow(ecodatAb), 10000000)), aes(y = value, x = f, fill = f)) + 
+```{r abiotic boxplots, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=11}
+ecodatAb %>% slice(sample(1:nrow(ecodatAb), 40000000)) %>% 
+  ggplot(aes(y = value, x = f, fill = f)) + 
   geom_boxplot(outlier.size = 0.2) + facet_wrap(.~name, scales = "free_y") + labs(x = "Category", fill = "Category")
-
 ```
 
 
 ### Biota
 
-The most widely sampled species in the habitat complex (found in most pixels)
-```{r widespreadspp, echo=FALSE, message=FALSE, warning=FALSE}
-species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(count) %>% order(decreasing = TRUE)]
-counts <- PA_distinct %>% pull(count) %>% sort(decreasing = TRUE)
+Most widely sampled species in `r groupname` (found in most pixels)
+```{r widespread species, echo=FALSE, message=FALSE, warning=FALSE}
+species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(as.character(typv6[count])) %>% order(decreasing = TRUE)]
+counts <- PA_distinct %>% pull(as.character(typv6[count])) %>% sort(decreasing = TRUE)
 
 j <- 0
 n <- 0
@@ -164,50 +138,47 @@ while(n < 10){
 }
 
 most_widespread_species <- sppDat[match(species_sorted[1:n], sppDat$scientific),] %>% dplyr::select(scientific, Functional_group, phylum) %>% data.frame(restricted = species_sorted[1:n] %in% restricted_spp, count = counts[1:n], relative_pct = round(100*counts[1:n]/sum(counts), 2)) %>% filter(relative_pct > 0) %>% 
-  setNames(c("scientific name", "functional group", "phylum", "Antarctic specialist", "count", "percent of samples"))
-
-#DT::datatable(most_widespread_species, caption = paste0("The top most widespread species in ecosystem ", unitname))
+  setNames(c("scientific name", "functional group", "phylum", "Antarctic specialist", "count", "percent of samp"))
 
 flextable(most_widespread_species) %>%
-  width(width = c(1.2, 2.4, 1, 1, 0.6, 1))
+  width(width = c(1.2, 2.4, 1, 1, 0.6, 1)) %>% 
+  fontsize(size = 10, part = "all") %>% font(fontname = "Cambria", part = "all") %>%
+  italic(j = 1) %>% theme_zebra()  %>% vline(j=1)
 ```
 
 
-```{r calculate biotic means, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-#ecodatBi$f <- "continent"
-#ecodatBi$f[grepl(pattern = groupname, ecodatBi$unit_h)] <- "env. unit"
-#ecodatBi$f[ecodatBi$unit_h == unitname] <- "assemblage"
+```{r calculate biotic means, message=FALSE, warning=FALSE, include=FALSE}
 
-ecodatBi <- ecodatBi %>% mutate(f = ifelse(unit_h == unitname, "assemblage", 
-                                           ifelse(grepl(pattern = groupname, unit_h), "env. unit", 
+ecodatBi <- ecodatBi %>% mutate(f = ifelse(LCODE == unitname, "Habitat", 
+                                           ifelse(grepl(pattern = groupname, LCODE), "Maj. Env. Unit", 
                                                   "continent")))
-ecodatBi$f <- factor(ecodatBi$f, levels = c("continent", "env. unit", "assemblage"))
+ecodatBi$f <- factor(ecodatBi$f, levels = c("continent", "Maj. Env. Unit", "Habitat"))
 
 
 bioticMeans <- ecodatBi %>% group_by(taxon, f) %>% 
   summarise(mean = mean(value, na.rm = T)) %>% 
   pivot_wider(names_from = "f", values_from = "mean") %>% 
-  mutate(envgr_cont = continent/`env. unit`, 
-         unit_envgr = `env. unit`/assemblage )
+  mutate(envgr_cont = continent/`Maj. Env. Unit`, 
+         unit_envgr = `Maj. Env. Unit`/Habitat )
 
 ```  
 
-This supergroup is, on average, substantially higher in suitability for 
+Major Environmental Unit `r groupname` is, on average, substantially higher in suitability for 
 `r df2txt(bioticMeans, 1.25, "taxon", "a")` 
 functional groups than continental Antarctica. It is substantially lower in suitability for
 `r df2txt(bioticMeans, 0.75, "taxon", "a")` 
 than the rest of the continent.
 
-Unit `r unitname` is higher in suitability for `r df2txt(bioticMeans, 1.25, "taxon", "b")` 
-and lower in suitability for `r df2txt(bioticMeans, 0.75, "taxon", "b")` than the rest of its environmental supergroup.
+Habitat Complex `r unitname` is higher in suitability for `r df2txt(bioticMeans, 1.25, "taxon", "b")` 
+and lower in suitability for `r df2txt(bioticMeans, 0.75, "taxon", "b")` than the rest of Major Environmental Unit `r groupname`.
 
 
 
-Distinctiveness of the unit from the environmental group and the rest of Antarctica 
+#### Distinctiveness of the unit from the Major Environmental Unit and the rest of Antarctica 
  
-```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=12}
-
-ggplot(ecodatBi %>% slice(sample(1:nrow(ecodatBi), 10000000)), aes(y = value, x = f, fill = f)) + 
-  geom_boxplot() + facet_wrap(.~taxon, scales = "free") + labs(x = "Biotic group", fill = "Biotic group") + theme(strip.text = element_text(size = 8))
+```{r echo=FALSE, fig.height=9, fig.width=10, message=FALSE, warning=FALSE}
+ecodatBi %>% slice(sample(1:nrow(ecodatBi), 50000000)) %>% 
+  ggplot(aes(y = value, x = f, fill = f)) + 
+  geom_boxplot(outlier.size = 0.2) + facet_wrap(.~taxon, scales = "free") + labs(x = "", fill = "") + theme(strip.text = element_text(size = 8), axis.text.x = element_blank())
 
 ```
