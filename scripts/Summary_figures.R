@@ -27,7 +27,6 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
   filter(area > 0)
   
   
-
  ggplot(area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% na.omit(), aes(x = as.factor(LCODE), fill = as.factor(env), y = area)) + 
    geom_col() + facet_wrap(~ACBR_NAME, scales = "free_y", ncol = 3) + 
    scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
@@ -37,14 +36,14 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
  
- # Bubble plots 
+ # Bubble plots ####
  area_summary %>% filter(ACBR_NAME != "South Orkney Islands", area >= 50) %>% 
    na.omit() %>%
    ggplot(aes(x = LCODE, y = ACBR_NAME, col = area, size = area)) + geom_point() +
    scale_color_viridis() +
    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
-# by proportion 
+# by proportion
  area_summary %>% group_by(ACBR_NAME) %>% summarise(ACBR_area = sum(area)) %>%
    full_join(area_summary) %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
    na.omit() %>% mutate(proportion = area/ACBR_area) %>% 
@@ -64,7 +63,7 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
          axis.title.y = element_blank())
  
-## Name abbreviations
+## Name abbreviations####
  
 area_summary <- area_summary %>% 
   mutate(Name_abbr = Name %>% 
@@ -96,8 +95,9 @@ area_summary <- area_summary %>%
             str_replace_all("transitional", "trans.") %>% 
             str_replace_all("  ", " "))
  
-## summary of unit areas overall
+## summary of unit areas overall ####
 area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+  mutate(LCODE = ifelse(grepl("L", LCODE), "L1", LCODE)) %>% 
   group_by(env, LCODE, Name, Name_abbr) %>% dplyr::summarise(area = sum(area)) %>% na.omit() %>%
   ggplot(aes(x = paste(LCODE, Name_abbr, sep = "-"), fill = as.factor(env), y = area)) + geom_col() + 
   facet_grid(.~as.factor(env), scales = "free_x", space = "free") +
@@ -106,7 +106,7 @@ area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>%
   labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
   theme(axis.text.x  = element_text(angle = 90, hjust = 1, vjust = 0))
 
-# map of tier 1
+# map of tier 1 ####
 
 typv6 <- read_csv("./results/typv6.txt")
 typv6 <- typv6 %>% filter(RASTERVALU != -9999, RASTERVALU != 0, y < 2e06) %>% 
@@ -116,8 +116,44 @@ ggplot() +
   coord_sf(datum = st_crs(3031)) +
   geom_tile(data = typv6, aes(x = x, y = y, fill = unit, col = unit), lwd = 0.5)
 
+# Bioregional Ecosystem Types ####
+library(sf)
+ru <- readRDS("./results/RegionalUnitsV6_3.rds")
+ru_summary <- ru %>% st_drop_geometry() %>% 
+  group_by(final, ACBR_Name, ACBR_ID, unit) %>% 
+  summarise(area = n()/100, comp = paste(unique(LCODE), collapse = "+")) %>%
+  mutate(unit = ifelse(grepl("G", unit), "G", unit))
+lev <- ru_summary %>% filter(area >=10) %>% group_by(ACBR_Name) %>% summarise(vals = n()) %>% arrange(vals) %>% pull(ACBR_Name)
+p <- ru_summary %>% filter(area > 10) %>% 
+  mutate(ACBR_Name = factor(ACBR_Name, levels = lev)) %>%
+  ggplot(aes(x = as.factor(final), y = area, fill = unit)) + 
+  geom_col() + facet_wrap(.~ACBR_Name, scales = "free", dir = "v", ncol = 3) + 
+  scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
+                    labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = .5, size = 8), strip.text = element_text(size = 7)) +
+  labs(x = "Bioregional Ecosystem Type", y = "Area (square km)", fill = "Major Env. Unit")
 
-# summary of geothermal units
+# convert ggplot object to grob object
+gp <- ggplotGrob(p)
+
+# optional: take a look at the grob object's layout
+#gtable::gtable_show_layout(gp)
+
+# get gtable columns corresponding to the facets (5 & 9, in this case)
+facet.columns <- gp$layout$l[grepl("panel", gp$layout$name)]
+
+# get the number of unique x-axis values per facet (1 & 3, in this case)
+x.var <- sapply(ggplot_build(p)$layout$panel_scales_x,
+                function(l) length(l$range$range))
+
+# change the relative widths of the facet columns based on
+# how many unique x-axis values are in each facet
+gp$widths[facet.columns] <- gp$widths[facet.columns] * x.var
+
+# plot result
+grid::grid.draw(gp)
+
+# summary of geothermal units ####
 
 ovl_area <- read_csv("../Data/Base/typV6_v2pl_areas.csv") # generated using TabulateAreas() in arcGIS
 
@@ -142,7 +178,3 @@ ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = 
         panel.grid.major.x = element_blank()) 
 
 
-## endemics 
-PA01 <- tobinary.single(PA)
-endemics <- merge(area_summary, PA01[which(rowSums(PA01) ==1),] %>% colSums(), by.x = "gridcode", by.y = 0) %>% rename(endemics = y)
-ggplot(endemics, aes(x = gridcode, fill = as.factor(env), y = endemics)) + geom_col() + scale_fill_viridis(discrete = TRUE) + labs(fill = "Env group") 
