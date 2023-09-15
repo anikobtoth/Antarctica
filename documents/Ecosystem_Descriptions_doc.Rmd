@@ -125,7 +125,7 @@ ecodatAb %>% slice(sample(1:nrow(ecodatAb), 40000000)) %>%
 
 ### Biota
 
-Most widely sampled species in `r groupname` (found in most pixels)
+Most widely sampled species in `r unitname` (found in most pixels)
 ```{r widespread species, echo=FALSE, message=FALSE, warning=FALSE}
 species_sorted <- rownames(PA_distinct)[PA_distinct %>% pull(as.character(typv6[count])) %>% order(decreasing = TRUE)]
 counts <- PA_distinct %>% pull(as.character(typv6[count])) %>% sort(decreasing = TRUE)

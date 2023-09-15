@@ -19,7 +19,7 @@ typ_df <- data %>% dplyr::select(LCODE, typv6_v1pl, x, y)
 
 # Unit raster
 
-typ_fah <- rast("./data/Typology/typv6_v1pl")
+typ_fah <- rast("../data/Typology/typv6_v1pl")
 
 #variables
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
@@ -41,19 +41,19 @@ bad_models <- c("adeliae.tif",
 #good_models <- biotic[!biotic%in% bad_models] 
 
 # Antarctica shapefile
-antarctica <- st_read("./data/Base", "Antarctic_landpoly") %>% 
+antarctica <- st_read("../data/Base", "Antarctic_landpoly") %>% 
   st_simplify(preserveTopology = TRUE, dTolerance = 2000)
 
 #ACBRs
-acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(!ACBR_ID %in% c(1,2))
+acbrs <- st_read("../data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(!ACBR_ID %in% c(1,2))
 acbr_area <- acbrs %>% mutate(area = st_area(geometry)) %>% group_by(ACBR_Name) %>% summarise(area = sum(area)) %>% st_drop_geometry()
 acbr_ext <- acbrs %>% split(.$ACBR_Name) %>% 
   purrr::map(~.x %>% st_bbox())
 
 
 # Occurrence data
-occ <- read_csv("./data/Species/Spp_iceFree_occ.csv")
-occurrences <- read_csv("./data/Species/Ant_Terr_Bio_Data_FINAL.csv")
+occ <- read_csv("../data/Species/Spp_iceFree_occ.csv")
+occurrences <- read_csv("../data/Species/Ant_Terr_Bio_Data_FINAL.csv")
 
 occ <- occ %>% dplyr::select(scientific, vernacular, Functional_group, kingdom, phylum, 
                              class, order_, family, genus, species) %>% unique()
@@ -66,7 +66,7 @@ occurrences <- full_join(occ[,c("scientific", "Functional_group")], occurrences,
 occ <- st_as_sf(occurrences, coords = c("decimalLongitude", "decimalLatitude"), crs = st_crs(4326))
 
 occ <- st_transform(occ, st_crs(3031))
-occ$fah <- extract(typ_fah, occ)$typv6_v1pl
+occ$fah <- extract(typ_fah, occ)$typV6_v1pl
 
 sppDat <- occurrences %>% dplyr::select(scientific, Functional_group, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
 # Manually remove errors 
@@ -163,7 +163,7 @@ units <- data %>% dplyr::select(typv6_v1pl, LCODE) %>% distinct() %>% arrange(LC
 typv6 <- units %>% pull(typv6_v1pl)
 unitnames <- units %>% pull(LCODE)
 count <- 0
-for(i in typv6[31:33]) {
+for(i in typv6) {
   count <- count + 1
   unitname <- unitnames[count]
   groupname <- word(unitname, 1,1, sep = "B")
