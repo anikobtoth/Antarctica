@@ -24,21 +24,17 @@ library(tinter)
 
 ### Introduction
 
-This candidate ecosystem typology for Antarctica was created for the purposes of classifying functional ecosystem types around Antarctica in a systematic environmental-geographic framework. It is intended to assist conservation and management decision making by providing three levels of complexity across the continent. It lends itself to understanding the true variation of ecosystems in Antarctica and performing risk assessments for these in the future. The typology focuses on permanently ice-free terrestrial areas of Antarctica and was produced at 100 m grid cell resolution. Because of the paucity of ecosystem data available for Antarctica, the classification is based primarily on environmental variables derived from models or satellite imagery and secondarily on habitat suitability models for several key functional taxa. 
+This candidate ecosystem typology for Antarctica was created for the purposes of classifying functional ecosystem types around Antarctica in a systematic environmental-geographic framework. It is intended to assist conservation and management decision making by providing three levels of complexity across the continent. It lends itself to understanding the true variation of ecosystems in Antarctica and performing risk assessments for these in the future. The typology focuses on permanently ice-free terrestrial areas of Antarctica and was produced at 100 m grid cell resolution. Because of the paucity of data available for Antarctica’s ecosystems, the classification is based primarily on environmental variables derived from models or satellite imagery and secondarily on habitat suitability models for several key functional taxa. 
 
 ### Approach
-
 We aimed to preserve information about finer-scale variations in ecosystem types while accurately representing environmental conditions across the entire continent. To this end, we employed a two-step hierarchical approach (Fig. 1). First, all pixels intersecting with an ice-free area were subjected to a factor analysis incorporating ten environmental (abiotic) variables (Table S1). Second, the resulting environmental groups were each subjected to a second factor analysis separately, this time based on habitat suitability models for functional groups. The results can be used to assign each pixel a value representing how well it fits into each grouping, and each pixel is placed into the group with the best fit. 
-
 The number of factors to retain (which in turn determines the number of levels in our classification) is rarely a straightforward decision in factor analysis. A variety of methods exist to determine the best number of factors to retain. For each factor analysis, we examined suggested factor numbers from a variety of recognised methods, including eigenvalues > 1, scree plots, parallel analysis, and revised parallel analysis. 
-
 Some pixels could not be classified due to lack of data coverage when input layers were coarse or poorly aligned. Pixels which were left unclassified by the factor analysis were therefore classified in the same biotic assemblage as their nearest classified neighbour using the arcMap function Nibble. 
-
-The classification groups at the first tier of the analysis are termed "major environmental units", while the second tier was used to produce "habitats". During post-processing, two major environmental units representing geothermally active areas and lakes were added. 
+The classification groups at the first tier of the analysis are termed "Major Environmental Units", while the second tier was used to produce "Habitat Complexes". During post-processing, two major environmental units representing geothermally active areas and lakes were added. 
 
 ### Results
 
-The resulting classification scheme has 7 major environmental units, 5 from the factor analysis and 2 added later. Each of the units from the factor analysis has 4-7 subgroups determined by the suitability layers, for a total of 28 units. Three special habitats were placed in the geothermal unit: active and dormant volcanoes and geothermal areas. Lakes were represented by a single habitat due to insufficient data to classify them further. Finally, penguin colonies were added and placed in the environmental unit with the lowest elevation. The environmental units are as follows. 
+The resulting classification scheme has seven major environmental units, five from the factor analysis (encoded E1-E5) and two added later. Each of the units from the factor analysis has 4-7 subgroups determined by the suitability layers, for a total of 28 units, encoded by the environmental unit code followed by a habitat index preceded by “B” within each unit (e.g. E3B1 for the first habitat in the environmental unit E3). Three special ecosystems were placed in the geothermal Major Environmental Unit (G): active volcanoes (G1), dormant volcanoes (G2) and radiogenic areas (G3). The Major Environmental Unit Lakes (L) were represented by a single Habitat Complex (L1) due to insufficient data to classify them further. Finally, penguin colonies were added and placed as an additional Habitat Complex in the mild lowlands unit (E1B8). The Major Environmental Units are as follows. 
 
 ```{r descriptions, echo=FALSE, message=FALSE, warning=FALSE}
 env_descr <- read_csv("Environment_group_table.csv")
@@ -46,7 +42,7 @@ env_descr <- read_csv("Environment_group_table.csv")
 flextable(env_descr) %>% width(width = c(1, .5, 1, 4))
 ```
 
-Below is a visual overview of the classification of environmental units. Each panel represents the range of values for two environmental variables in each environmental group. Cloud, melt, and precip are moisture availability variables. MeanTemp is the mean Temperature in 2014-2015. Solar is solar radiation, which is calculated based on aspect, reflected light, and other factors. Elev = elevation; rugos = Rugosity; slope = slope of incline; wind = an average measure of the amount of wind. 
+
 
 ```{r overview_boxplots, echo=FALSE, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
 ecodatAb %>% slice(sample(1:nrow(.), 20000000)) %>%
@@ -58,8 +54,8 @@ ecodatAb %>% slice(sample(1:nrow(.), 20000000)) %>%
   labs(fill = "Environmental unit", x = "Environmental unit")
 
 ```
+Figure A1.1. A visual overview of the classification of Major Environmental Units. Each panel represents the range of values for one environmental variable in each Major Environmental Unit. Cloud, melt, and totPrecip are moisture availability variables. MeanTemp is the mean Temperature in 2014-2015 and DDm5 is the degree-days over -5 degrees centigrade, a common measure of the growing season. Solar is solar radiation, which is calculated based on aspect, reflected light, and other factors. Elevation, rugosity and slope are terrain variables based on the digital elevation model (Table S1); and wind is an average measure of the amount of wind.
 
-To help further contextualize the environmental conditions in each unit, 50% confidence ellipses are plotted for each unit and habitat  around a selection of variables below. These are followed by more detailed visual overviews of the variable range in each habitat, plotted separately for each environmental unit. These plots should help give a clearer idea of how the units and habitats  are distinct from one another. Note that unit-level classification was done on suitability data alone, meaning that the environmental differences among units are likely reflected by differing biotas, even if they are slight.
 
 Terrain
 
@@ -78,6 +74,9 @@ ggplot(ellipse_data, aes(x = slope, y = elevation, color = habitat)) +
 
 ```
 
+Figure A1.2. Terrain-related variables for Major Environmental Units (panels) and Habitat Complex (ellipses), represented as 50% confidence ellipses. The legend indicates the color of each Habitat Complex; i.e. the yellow ellipse in panel E1 represents Habitat Complex E1B4. 
+
+
 Moisture availability (note logged axes)
 
 ```{r moisture, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
@@ -90,6 +89,8 @@ ggplot(ellipse_data, aes(x = melt, y = totPrecip, color = habitat)) +
 
 ```
 
+Figure A1.3. Moisture availability-related variables for Major Environmental Units (panels) and Habitat Complex (ellipses), represented as 50% confidence ellipses. Note the logged axes.
+
 Wind and light conditions
 
 ```{r wind, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
@@ -100,6 +101,8 @@ ggplot(ellipse_data, aes(x = solar, y = wind, color = habitat)) +
 
 ```
 
+Figure A1.4. Wind and light conditions for Major Environmental Units (panels) and Habitat Complex (ellipses), represented as 50% confidence ellipses. Note the logged axes.
+
 Cloud and growing season 
 
 ```{r cloud, echo=FALSE, fig.height=7, fig.width=9, message=FALSE, warning=FALSE}
@@ -109,6 +112,10 @@ ggplot(ellipse_data, aes(x = cloud, y = DDm5, color = habitat)) +
        scale_color_manual(values = col12)
 
 ```
+
+Figure A1.5. Cloud and growing season (DDm5) for Major Environmental Units (panels) and Habitat Complex (ellipses), represented as 50% confidence ellipses. Note the logged y-axis.
+
+Below is a detailed visual overview of the spatial distribution and variable range in each Habitat Complex, plotted separately for each Major Environmental Unit. These plots help give a clearer idea of how the units and habitats are distinct from one another. Note that unit-level classification was done on suitability data alone, meaning that the environmental differences among units are likely reflected by differing biotas, even if they are slight. Each Major Environmental Unit has three figures, (A) a map, (B) boxplots of abiotic variables and (C) boxplots of habitat suitability variables. 
 
 
 ### Environmental unit 1 (Mild Lowlands) 
@@ -304,3 +311,5 @@ ecodatBi %>% filter(grepl("G|L", LCODE)) %>%
   labs(fill = "habitat", x = "habitat")
 
 ```
+
+
