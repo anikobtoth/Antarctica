@@ -6,10 +6,12 @@ date: "2023-04-11"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(cowplot)
 ```
 
 ```{r echo=FALSE, fig.height=10, fig.width=13, message=FALSE, warning=FALSE}
-typv6 <- read_csv("./results/typv6.txt")
+typv6 <- read_csv("../results/typv6.txt")
 typv6 <- typv6 %>% filter(RASTERVALU != -9999, RASTERVALU != 0, y < 2e06) %>% 
   mutate(unit = ifelse(RASTERVALU %in% 1:4, "Humid midlands", ifelse(RASTERVALU %in% 6:11, "High mountains", ifelse(RASTERVALU %in% c(13:19, 400), "Mild lowlands", ifelse(RASTERVALU %in% 21:25, "Sunny/dry midlands", ifelse(RASTERVALU %in% 27:32, "High flatlands", ifelse(RASTERVALU %in% c(100, 200, 300), "Geothermal", ifelse(RASTERVALU == 500, "Lakes", NA)))))))) %>%
   mutate(unit = factor(unit, levels = c("Mild lowlands","Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")))
@@ -21,6 +23,7 @@ t1 <- ggplot() +
   scale_fill_manual(values =  c("#FFE063", "#9ED7B4", "#A85226", "#579141", "#D6EDFF", "#B387AD", "#0094FF")) +
   geom_rect(aes(xmin = 383880, ymin = -1349685, xmax = 483092, ymax = -1258908), fill = NA, color = "black", size = 1.2, inherit.aes = FALSE) +
   geom_rect(aes(xmin = -1395991, ymin = 35000, xmax = -1022067, ymax = 192808), fill = NA, color = "black", size = 1.2, inherit.aes = FALSE) +
+    geom_rect(aes(xmin = 1502818, ymin = 471605, xmax = 2247919, ymax = 1018776), fill = NA, color = "black", size = 1.2, inherit.aes = FALSE) +
   theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank())
 
 inset1 <- t1 +  coord_sf(
@@ -35,8 +38,15 @@ inset2 <- t1 +  coord_sf(
     expand = FALSE) +
   theme(legend.position = "none")
 
+inset3 <- t1 +  coord_sf(
+    xlim = c(1502818, 2247919),
+    ylim = c(471605, 1018776),
+    expand = FALSE) +
+  theme(legend.position = "none")
+
 ggdraw(t1) + draw_plot({inset1}, x = 0.28, y = 0.03, width = 0.219, height = 0.2) +
-  draw_plot({inset2}, x = 0.12, y = 0.75, width = 0.296, height = 0.125)
+  draw_plot({inset2}, x = 0.12, y = 0.75, width = 0.296, height = 0.125) +
+  draw_plot({inset3}, x = 0.75, y = 0.66, width = 0.27, height = 0.198)
 
 ```
 
