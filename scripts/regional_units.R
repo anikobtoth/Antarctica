@@ -5,8 +5,6 @@ library(tidyr)
 library(terra)
 library(sf)
 
-#epsg3031 <- CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs")
-#out <- readRDS("./results/out_TYPV6.rds")
 #typ_df from ecosystem descriptions dataprep
 acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(ACBR_ID != 2)
 epsg3031 <- st_crs(acbrs)
@@ -48,6 +46,35 @@ excepted_rus$final <- excepted_rus$ru %>% as.factor() %>% as.numeric() %>% `+`(m
 ru <- rbind(ru, excepted_rus)
 
 saveRDS(ru, "./results/RegionalUnitsV6_3.rds")
+
+ru_summary <- ru %>% st_drop_geometry() %>% group_by(typv6_v1pl, unit, ACBR_ID, ACBR_Name, ru, final) %>% summarise(n = n())
+BETs <- ru_summary %>% group_by(final) %>% 
+  summarise(ID_Tier1 = paste(unique(unit), collapse = ", "), 
+            ACBR_Name = paste(unique(ACBR_Name), collapse = ", "), 
+            ID_Tier2 = word(ru, 2, 2, sep = "_") %>% unique() %>% paste(collapse = ", "), 
+            ID_Tier3 = ru[which(n == max(n))] %>% word(2,2, "_"), size = sum(n), n_merge = n()) %>%
+  mutate(ACBR_Name = str_replace(ACBR_Name, "south", "South"), 
+         ACBR_Name = str_replace(ACBR_Name, "Adelie", "Adélie"))
+hc_names <- read_csv("documents/Unit_descriptionsV6.csv")
+ACBR_abbrevs <- read_csv("documents/ACBR_abbrevs.csv")
+BETs <- left_join(BETs, select(hc_names, LCODE, Name), by = c("ID_Tier3" = "LCODE")) %>% 
+  left_join(select(hc_names, LCODE, Name), by = c("ID_Tier1" = "LCODE"), suffix = c("_Tier2", "_Tier1")) %>% 
+  left_join(ACBR_abbrevs) %>%       
+  mutate(amalg = ifelse(n_merge > 1, "a", ""))
+
+# deal with amalgamated ACBRs
+BETs[which(grepl(",", BETs$ACBR_Name)),]$Abbreviation <- BETs[which(grepl(",", BETs$ACBR_Name)),] %>% 
+  pull(ACBR_Name) %>% strsplit(", ") %>% 
+  map(~ACBR_abbrevs %>% filter(ACBR_Name %in% .x) %>% pull(Abbreviation)) %>% 
+  map(paste0, collapse = "_") %>% unlist()
+
+# full Tier 3 id 
+BETs <- BETs %>% mutate(ID_Tier3 = paste0(ID_Tier3, "_", Abbreviation, amalg), 
+                        Name_Tier3 = paste0(Name_Tier2, " in ", ACBR_Name)) %>% 
+  select(BET_code = final, ID_Tier3, Name_Tier3, ID_Tier1, Name_Tier1, ID_Tier2, Name_Tier2, ACBR_Name) 
+
+# BET summary table of names
+saveRDS(BETs, "./Results/RegionalUnits_Naming_Table.rds")
 
 # Regional Units helper functions
 ru_logicTree <- function(ru, size_threshold = 2000){
