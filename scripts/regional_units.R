@@ -1,82 +1,14 @@
 ## Generate regional units
+library(raster)
+library(stringr)
 library(dplyr)
 library(purrr)
+library(readr)
 library(tidyr)
 library(terra)
 library(sf)
 
-#typ_df from ecosystem descriptions dataprep
-acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(ACBR_ID != 2)
-epsg3031 <- st_crs(acbrs)
-ACBR_key <- readRDS("./data/ACBR_key.rds")
-
-units <- typ_df %>% st_as_sf(coords = c("x", "y")) %>% st_set_crs(epsg3031) %>% 
-  mutate(unit = word(LCODE, 1,1, sep = "B"))
-
-
-# raw intersection of typology and ACBRs
-ru <- st_intersection(units, acbrs, tolerance = 50)
-ru$ru <- paste(ru$ACBR_Name, ru$LCODE, sep = "_")
-excepted_rus <- ru %>% filter(grepl(.$unit, pattern = "G|L") | LCODE == "E1B8") ## exclude overlays
-ru <- ru %>% filter(!(grepl(.$unit, pattern = "G[1-3]|L") | LCODE == "E1B8")) ## exclude overlays
-
-rm(data, units, typ_df, descr)
-# identify ACBR neighbours
-acbr_nbrs <- acbrs %>% split(.$ACBR_ID) %>% 
-  purrr::map(~.x %>% st_bbox() %>% st_as_sfc() %>% st_as_sf()) %>% 
-  bind_rows(.id = "ACBR_ID") %>% 
-  st_buffer(200) %>%
-  st_intersection() %>%
-  filter(n.overlaps > 1) %>% 
-  st_set_crs(epsg3031)
-
-merge.out <- ru_logicTree(ru, 5000)
-
-final_runits <- merge.out[!map_lgl(merge.out, is.null)] %>% 
-  reduce(makeunits) %>% arrange(final)
-ru <- left_join(ru, final_runits, by = c("ru" = "raw"), )
-
-# number regional units with no merges
-flagged_small <- ru %>% filter(is.na(final))
-flagged_small$final <- flagged_small$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
-ru <- ru %>% filter(!is.na(final)) %>% rbind(flagged_small)
-
-## add excepted rus back in.
-excepted_rus$final <- excepted_rus$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
-ru <- rbind(ru, excepted_rus)
-
-saveRDS(ru, "./results/RegionalUnitsV6_3.rds")
-
-ru_summary <- ru %>% st_drop_geometry() %>% group_by(typv6_v1pl, unit, ACBR_ID, ACBR_Name, ru, final) %>% summarise(n = n())
-BETs <- ru_summary %>% group_by(final) %>% 
-  summarise(ID_Tier1 = paste(unique(unit), collapse = ", "), 
-            ACBR_Name = paste(unique(ACBR_Name), collapse = ", "), 
-            ID_Tier2 = word(ru, 2, 2, sep = "_") %>% unique() %>% paste(collapse = ", "), 
-            ID_Tier3 = ru[which(n == max(n))] %>% word(2,2, "_"), size = sum(n), n_merge = n()) %>%
-  mutate(ACBR_Name = str_replace(ACBR_Name, "south", "South"), 
-         ACBR_Name = str_replace(ACBR_Name, "Adelie", "Adélie"))
-hc_names <- read_csv("documents/Unit_descriptionsV6.csv")
-ACBR_abbrevs <- read_csv("documents/ACBR_abbrevs.csv")
-BETs <- left_join(BETs, select(hc_names, LCODE, Name), by = c("ID_Tier3" = "LCODE")) %>% 
-  left_join(select(hc_names, LCODE, Name), by = c("ID_Tier1" = "LCODE"), suffix = c("_Tier2", "_Tier1")) %>% 
-  left_join(ACBR_abbrevs) %>%       
-  mutate(amalg = ifelse(n_merge > 1, "a", ""))
-
-# deal with amalgamated ACBRs
-BETs[which(grepl(",", BETs$ACBR_Name)),]$Abbreviation <- BETs[which(grepl(",", BETs$ACBR_Name)),] %>% 
-  pull(ACBR_Name) %>% strsplit(", ") %>% 
-  map(~ACBR_abbrevs %>% filter(ACBR_Name %in% .x) %>% pull(Abbreviation)) %>% 
-  map(paste0, collapse = "_") %>% unlist()
-
-# full Tier 3 id 
-BETs <- BETs %>% mutate(ID_Tier3 = paste0(ID_Tier3, "_", Abbreviation, amalg), 
-                        Name_Tier3 = paste0(Name_Tier2, " in ", ACBR_Name)) %>% 
-  select(BET_code = final, ID_Tier3, Name_Tier3, ID_Tier1, Name_Tier1, ID_Tier2, Name_Tier2, ACBR_Name) 
-
-# BET summary table of names
-saveRDS(BETs, "./Results/RegionalUnits_Naming_Table.rds")
-
-# Regional Units helper functions
+# Regional Units helper functions ----
 ru_logicTree <- function(ru, size_threshold = 2000){
   merge.out <- list()
   
@@ -176,8 +108,110 @@ makeunits <- function(a, b){
   return(rbind(a, b) %>% distinct())
 }
 
+# Load data ----
+acbrs <- st_read("../Data/ACBRs/", "acbrs_union_polygons") #%>% filter(Id != 2)
+names(acbrs)[1] <- "ACBR_ID"
+epsg3031 <- st_crs(acbrs)
+ACBR_key <- readRDS("./data/ACBR_key.rds")
+hc_names <- read_csv("documents/Unit_descriptionsV6.csv")
+tier2 <- raster("../Geospatial_outputs/Tier2_HCs.tif") %>% rasterToPoints() %>% as_tibble()  # read in completed tier2 raster data
+units <- tier2 %>% left_join(hc_names %>% dplyr::select(Gridcode, LCODE), by = c("Tier2_HCs" = "Gridcode")) %>% 
+  st_as_sf(coords = c("x", "y")) %>% st_set_crs(epsg3031) %>% 
+  mutate(unit = word(LCODE, 1,1, sep = "B"))
 
-## plotting
+unclassified <- units %>% filter(Tier2_HCs == 0) # remove unclassified pixels from analysis
+units <- filter(units, Tier2_HCs > 0)
+
+# ACBR intersection ----
+ru <- st_intersection(units, acbrs, tolerance = 50)
+ru <- ru %>% filter(Id != 2) %>% left_join(ACBR_key)
+ru$ru <- paste(ru$ACBR_Name, ru$LCODE, sep = "_")
+excepted_rus <- ru %>% filter(grepl(.$unit, pattern = "G|L") | LCODE == "E1B8") ## exclude overlays
+ru <- ru %>% filter(!(grepl(.$unit, pattern = "G[1-3]|L") | LCODE == "E1B8")) ## exclude overlays
+
+rm(tier2)
+# identify ACBR neighbours
+acbrs <- st_read("./data/ACBRs", "ACBRs_v2_2016") %>% st_buffer(dist = 100) %>% filter(ACBR_ID != 2)
+acbr_nbrs <- acbrs %>% split(.$ACBR_ID) %>% 
+  purrr::map(~.x %>% st_bbox() %>% st_as_sfc() %>% st_as_sf()) %>% 
+  bind_rows(.id = "ACBR_ID") %>% 
+  st_buffer(200) %>%
+  st_intersection() %>%
+  filter(n.overlaps > 1) %>% 
+  st_set_crs(epsg3031)
+
+# Logic tree ----
+
+merge.out <- ru_logicTree(ru, 5000)
+
+final_runits <- merge.out[!map_lgl(merge.out, is.null)] %>% 
+  reduce(makeunits) %>% arrange(final)
+ru <- left_join(ru, final_runits, by = c("ru" = "raw"), )
+
+# number regional units with no merges
+flagged_small <- ru %>% filter(is.na(final))
+flagged_small$final <- flagged_small$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
+ru <- ru %>% filter(!is.na(final)) %>% rbind(flagged_small)
+
+## add excepted rus back in.
+excepted_rus$final <- excepted_rus$ru %>% as.factor() %>% as.numeric() %>% `+`(max(ru$final, na.rm = T))
+ru <- rbind(ru, excepted_rus)
+
+saveRDS(ru, "./results/RegionalUnitsV6_union.rds")
+
+## Tier 3 raster ----
+  #using terra 
+r <- rast(xmin = -2661867, xmax = 2614735, ymin = -2490172, ymax = 2321930,
+                   crs = epsg3031, resolution = 100) 
+r[] <- NA
+cells <- cellFromXY(r, st_coordinates(ru))
+r[cells] <- as.integer(ru$final)
+
+writeRaster(r, filename = "../Geospatial_outputs/Tier3_BETs.tif", 
+            filetype = "GTiff", overwrite = TRUE)
+
+  # using raster
+r <- raster(xmn = -2661867, xmx = 2614735, ymn = -2490172, ymx = 2321930,
+          crs = epsg3031, resolution = 100) 
+r[] <- NA
+cells <- cellFromXY(r, st_coordinates(ru))
+r[cells] <- as.integer(ru$final)
+crs(r) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs"
+writeRaster(r, filename = "../Geospatial_outputs/Tier3_BETs.tif", 
+            format = "GTiff", overwrite = TRUE)
+
+
+## Summary table with naming details ----
+ru_summary <- ru %>% st_drop_geometry() %>% group_by(Tier2_HCs, unit, ACBR_ID, ACBR_Name, ru, final) %>% summarise(n = n())
+BETs <- ru_summary %>% group_by(final) %>% 
+  summarise(ID_Tier1 = paste(unique(unit), collapse = ", "), 
+            ACBR_Name = paste(unique(ACBR_Name), collapse = ", "), 
+            ID_Tier2 = word(ru, 2, 2, sep = "_") %>% unique() %>% paste(collapse = ", "), 
+            ID_Tier3 = ru[which(n == max(n))] %>% word(2,2, "_"), size = sum(n), n_merge = n(), size = sum(n)) %>%
+  mutate(ACBR_Name = str_replace(ACBR_Name, "south", "South"), 
+         ACBR_Name = str_replace(ACBR_Name, "Adelie", "Adélie"))
+
+BETs <- left_join(BETs, dplyr::select(hc_names, LCODE, Name), by = c("ID_Tier3" = "LCODE")) %>% 
+  left_join(dplyr::select(hc_names, LCODE, Name), by = c("ID_Tier1" = "LCODE"), suffix = c("_Tier2", "_Tier1")) %>% 
+  left_join(ACBR_key) %>%       
+  mutate(amalg = ifelse(n_merge > 1, "a", ""))
+
+# deal with amalgamated ACBRs
+BETs[which(grepl(",", BETs$ACBR_Name)),]$Abbreviation <- BETs[which(grepl(",", BETs$ACBR_Name)),] %>% 
+  pull(ACBR_Name) %>% strsplit(", ") %>% 
+  map(~ACBR_key %>% filter(ACBR_Name %in% .x) %>% pull(Abbreviation)) %>% 
+  map(paste0, collapse = "_") %>% unlist()
+
+# full Tier 3 id 
+BETs <- BETs %>% mutate(ID_Tier3 = paste0(ID_Tier3, "_", Abbreviation, amalg), 
+                        Name_Tier3 = paste0(Name_Tier2, " in ", ACBR_Name)) %>% 
+  dplyr::select(BET_code = final, ID_Tier3, Name_Tier3, ID_Tier1, Name_Tier1, ID_Tier2, Name_Tier2, ACBR_Name) 
+
+
+# BET summary table of names
+saveRDS(BETs, "./results/ms_tables/RegionalUnits_Naming_Table.rds")
+
+## plotting ----
 
 antarctica <- st_read("./data/Base", "Coastline_high_res_polygon_v7.1") %>% st_simplify()
 
