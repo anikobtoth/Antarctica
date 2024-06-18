@@ -55,14 +55,6 @@ out <- v1 %>% dplyr::select(-all_of(good_models), -all_of(abiotic), -modT, -aspe
 ## Make rasters #
 library(raster)
 
-# unitsV2 <- raster(xmn = -2653500, xmx =2592500, ymn = -2121500, ymx = 2073500, 
-#                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"), 
-#                   nrows = 4195, ncols = 5246)
-
-#unitsV5 <- raster(xmn = -2700100, xmx = 2600100, ymn = -2200100, ymx = 2100100,
-#                  crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
-#                  nrows = 43002, ncols = 53002)
-
 unitsV6 <- raster(xmn = -2661867, xmx = 2614735, ymn = -2490172, ymx = 2321930,
                   crs = CRS("+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +k=1 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"),
                   resolution = 100) %>% setValues(NA) %>%
@@ -71,14 +63,12 @@ unitsV6 <- raster(xmn = -2661867, xmx = 2614735, ymn = -2490172, ymx = 2321930,
 out$rastervalue <- out$unit_h %>% as.factor() %>% as.numeric()
 out <- out %>% filter(rastervalue != 27)
 cells <- cellFromXY(unitsV6, cbind(out$x, out$y))
-#out <- out[-which(is.na(cells)),]
-cells <- cellFromXY(unitsV6, cbind(out$x, out$y))
 values <- out$unit_h %>% as.factor() %>% as.numeric()
 
 #outsub <- out[8000001:nrow(out),]
 #cells <- cellFromXY(unitsV6, cbind(outsub$x, outsub$y))
 #values <- outsub$rastervalue
-unitsV6 <- update(unitsV6, cell = cells, v = values)
+unitsV6[cells] <- values
 
 #unitsV6[cellFromXY(unitsV6, cbind(out$x, out$y))] <- out$unit_h %>% as.factor() %>% as.numeric()
 
