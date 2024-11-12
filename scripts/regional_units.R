@@ -198,14 +198,19 @@ BETs <- left_join(BETs, dplyr::select(hc_names, LCODE, Name), by = c("ID_Tier3" 
 
 # deal with amalgamated ACBRs
 BETs[which(grepl(",", BETs$ACBR_Name)),]$Abbreviation <- BETs[which(grepl(",", BETs$ACBR_Name)),] %>% 
-  pull(ACBR_Name) %>% strsplit(", ") %>% 
+  pull(ACBR_Name) %>% strsplit(", ") %>% map(sort) %>%
   map(~ACBR_key %>% filter(ACBR_Name %in% .x) %>% pull(Abbreviation)) %>% 
   map(paste0, collapse = "_") %>% unlist()
+
+BETs[which(grepl(",", BETs$ACBR_Name)),]$ACBR_Name <- BETs[which(grepl(",", BETs$ACBR_Name)),] %>% 
+  pull(ACBR_Name) %>% strsplit(", ") %>% map(sort) %>% 
+  map(paste0, collapse = "_") %>% unlist()
+
 
 # full Tier 3 id 
 BETs <- BETs %>% mutate(ID_Tier3 = paste0(ID_Tier3, "_", Abbreviation, amalg), 
                         Name_Tier3 = paste0(Name_Tier2, " in ", ACBR_Name)) %>% 
-  dplyr::select(BET_code = final, ID_Tier3, Name_Tier3, ID_Tier1, Name_Tier1, ID_Tier2, Name_Tier2, ACBR_Name) 
+  dplyr::select(BET_code = final, ID_Tier3, Name_Tier3, ID_Tier1, Name_Tier1, ID_Tier2, Name_Tier2, ACBR_Name, size_ha = size) 
 
 
 # BET summary table of names
