@@ -27,16 +27,38 @@ area_summary <- ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habita
   filter(area > 0)
   
   
- ggplot(area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% na.omit(), aes(x = as.factor(LCODE), fill = as.factor(env), y = area)) + 
+area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>% 
+  filter(!is.na(plot_unit)) %>% 
+  ggplot(aes(x = as.factor(LCODE), fill = as.factor(env), y = area)) + 
    geom_col() + facet_wrap(~ACBR_NAME, scales = "free_y", ncol = 3) + 
    scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
                      labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
    labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") + 
-   theme(axis.text.x = element_blank(), 
+   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
+
+# lakes only ####
+lake_area <- read_csv("../Data/Lakes/lake_acbr_shp_areas.txt")
+lake_hc <- read_csv("../Data/Lakes/lake_hc_shp_areas.txt")
+
+p1 <- lake_area %>% left_join(ACBR_key, c("ID" = "ACBR_ID")) %>% select(-Rowid_)%>% na.omit() %>%
+  ggplot(aes(x = Abbreviation, y = LAND/1000000)) + geom_col(fill = "dodgerblue") + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+  labs(y = "Lake area in square km", x = "ACBR")
+
+p2 <- lake_hc %>% left_join(habitats, c("VALUE" = "Gridcode")) %>% 
+  select(-Rowid_) %>% na.omit() %>% 
+  mutate(habitat = word(LCODE, 1, 1, sep = "B"), 
+         habitat = ifelse(habitat %in% c("G1", "G2", "G3"), "G", habitat)) %>%
+  ggplot(aes(x = LCODE, y = LAND/1000000, fill = habitat)) + geom_col() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+  labs(y = "Lake area in square km", x = "habitat complex", fill = "Tier 1") + 
+  scale_fill_manual(values = c(viridis(5), "gray20"))
+
+plot_grid(p1, p2, ncol = 2, labels = c("a", "b"), rel_widths = c(2,3), align = "h")
  
- # Bubble plots ####
+# Bubble plots ####
  area_summary %>% filter(ACBR_NAME != "South Orkney Islands", area >= 50) %>% 
    na.omit() %>%
    ggplot(aes(x = LCODE, y = ACBR_NAME, col = area, size = area)) + geom_point() +
@@ -172,7 +194,7 @@ ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = 
   ggplot(aes(x = unit, fill = as.factor(str_sub(unit, 1,2)), y = area)) + geom_col() + 
   scale_fill_manual(values = c(viridis(5))) +
   facet_grid(~superunit, scales = "free", space = "free")+
-  labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") +
+  labs(fill = "Tier 1", y = "Area (square km)", x = "Habitat complex") +
   theme(axis.text.x  = element_text(angle = 90, vjust = 0.3), 
         panel.grid.minor = element_blank(), 
         panel.grid.major.x = element_blank()) 
