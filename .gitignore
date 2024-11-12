@@ -28,7 +28,13 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 # Big data files
-data
+data/*extract*
+data/ACBRs
+data/Base
+data/Species
+
+
+
 results
 *.html
 *.docx
