@@ -19,7 +19,7 @@ typ_df <- data %>% dplyr::select(LCODE, typv6_v1pl, x, y)
 
 # Unit raster
 
-typ_fah <- rast("../data/Typology/typv6_v1pl")
+typ_fah <- rast("../Data/Typology/typv6_v1pl")
 
 #variables
 abiotic <- c("cloud", "wind", "meanTemp", "melt", 
@@ -28,17 +28,6 @@ abiotic <- c("cloud", "wind", "meanTemp", "melt",
 # SDM and environmental data
 #biotic <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
 good_models <- grep(names(data), pattern = ".tif", value = T)
-bad_models <- c("adeliae.tif",
-                "Procellariiformes.tif",
-                "Poduromorpha.tif",
-                "Grimmiales.tif",
-                "Cyanobacteria.tif",
-                "Tardigrada.tif",
-                "Marchantiophyta.tif",
-                "Lecideaceae.tif",
-                "Umbilicariaceae.tif")
-
-#good_models <- biotic[!biotic%in% bad_models] 
 
 # Antarctica shapefile
 antarctica <- st_read("../data/Base", "Antarctic_landpoly") %>% 
@@ -66,7 +55,7 @@ occurrences <- full_join(occ[,c("scientific", "Functional_group")], occurrences,
 occ <- st_as_sf(occurrences, coords = c("decimalLongitude", "decimalLatitude"), crs = st_crs(4326))
 
 occ <- st_transform(occ, st_crs(3031))
-occ$fah <- extract(typ_fah, occ)$typV6_v1pl
+occ$fah <- terra::extract(typ_fah, occ)$typV6_v1pl
 
 sppDat <- occurrences %>% dplyr::select(scientific, Functional_group, vernacularName, kingdom, phylum, class, order, family, genus, species) %>% unique()
 # Manually remove errors 
