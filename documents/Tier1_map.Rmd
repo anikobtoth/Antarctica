@@ -11,6 +11,10 @@ library(cowplot)
 ```
 
 ```{r echo=FALSE, fig.height=10, fig.width=13, message=FALSE, warning=FALSE}
+# Antarctica shapefile
+antarctica <- st_read("../data/Base", "Antarctic_landpoly") %>% 
+  st_simplify(preserveTopology = TRUE, dTolerance = 2000)
+# typology raster
 typv6 <- read_csv("../results/typv6.txt")
 typv6 <- typv6 %>% filter(RASTERVALU != -9999, RASTERVALU != 0, y < 2e06) %>% 
   mutate(unit = ifelse(RASTERVALU %in% 1:4, "Humid midlands", ifelse(RASTERVALU %in% 6:11, "High mountains", ifelse(RASTERVALU %in% c(13:19, 400), "Mild lowlands", ifelse(RASTERVALU %in% 21:25, "Sunny/dry midlands", ifelse(RASTERVALU %in% 27:32, "High flatlands", ifelse(RASTERVALU %in% c(100, 200, 300), "Geothermal", ifelse(RASTERVALU == 500, "Lakes", NA)))))))) %>%
