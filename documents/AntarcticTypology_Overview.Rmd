@@ -8,15 +8,16 @@ always_allow_html: true
 
 ```{r setup, include=FALSE, results = "asis"}
 library(tidyverse)
-library(rgdal)
+#library(rgdal)
 library(sp)
 library(knitr)
 library(DT)
 library(ggfortify)
 library(rgl)
 library(viridis)
-library(flextable)
+#library(flextable)
 library(tinter)
+library(RColorBrewer)
 #source('../scripts/Helper_Functions.R')
 #load("../data/clean_hier_unit_datasets.RData")
 
@@ -44,14 +45,14 @@ flextable(env_descr) %>% width(width = c(1, .5, 1, 4))
 
 
 
-```{r overview_boxplots, echo=FALSE, fig.height=10, fig.width=8, message=FALSE, warning=FALSE}
-ecodatAb %>% slice(sample(1:nrow(.), 20000000)) %>%
+```{r overview_boxplots, echo=FALSE, fig.height=5.5, fig.width=10, message=FALSE, warning=FALSE}
+ecodatAb %>% slice_sample(n=20000000) %>%
   separate(LCODE, into = c("unit", "habitat"), sep = "B") %>% 
    mutate(habitat = ifelse(unit %in% c("G1", "G2", "G3", "L"), unit, habitat), 
           unit = ifelse(unit %in% c("G1", "G2", "G3", "L"), "G and L", unit)) %>%
   ggplot( aes(x = unit, y = value, fill = unit)) + geom_boxplot(outlier.size = 0.2) + 
-  facet_wrap(~name, scales = "free_y") + scale_fill_manual(values = c(viridis(5), "gray30"))  +
-  labs(fill = "Environmental unit", x = "Environmental unit")
+  facet_wrap(~name, scales = "free_y", ncol = 5) + scale_fill_manual(values = c(viridis(5), "gray30"))  +
+  labs(fill = "Tier1", x = "Tier1")
 
 ```
 Figure A1.1. A visual overview of the classification of Major Environmental Units. Each panel represents the range of values for one environmental variable in each Major Environmental Unit. Cloud, melt, and totPrecip are moisture availability variables. MeanTemp is the mean Temperature in 2014-2015 and DDm5 is the degree-days over -5 degrees centigrade, a common measure of the growing season. Solar is solar radiation, which is calculated based on aspect, reflected light, and other factors. Elevation, rugosity and slope are terrain variables based on the digital elevation model (Table S1); and wind is an average measure of the amount of wind.
@@ -122,17 +123,18 @@ Below is a detailed visual overview of the spatial distribution and variable ran
 
 
 ```{r E1map, echo=FALSE, message=FALSE, fig.height=10, fig.width=10, warning=FALSE}
-group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400))
+group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(13:19, 400)) 
 
 # Full map
   ggplot() +
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 1) +
     scale_fill_manual(values = c(brewer.pal(n = 7, name = "Accent"), "forestgreen")) + 
     scale_color_manual(values = c(brewer.pal(n = 7, name = "Accent"), "forestgreen")) + 
-    labs(x = "x", y = "y", col = "habitat", fill = "habitat") 
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat") +
+    theme(axis.title = element_blank(), axis.text = element_blank())
    
 ```
 
@@ -160,8 +162,10 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(1:4))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
-    scale_colour_brewer(type = "qual", palette = "Accent", aesthetics = c("colour", "fill")) +  labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 1) +
+    scale_colour_brewer(type = "qual", palette = "Accent", aesthetics = c("colour", "fill")) +  
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat") +
+    theme(axis.title = element_blank(), axis.text = element_blank())
 ```
 
 
@@ -192,8 +196,10 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(21:25))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
-    scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour")) + labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd =1) +
+    scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour")) + 
+   labs(x = "x", y = "y", col = "habitat", fill = "habitat")  +
+    theme(axis.title = element_blank(), axis.text = element_blank())
     
 ```
 
@@ -223,9 +229,10 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(6:11))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) +   
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 1) +
     scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour"))+
-    labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat")  +
+    theme(axis.title = element_blank(), axis.text = element_blank())
 ```
 
 
@@ -255,8 +262,10 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(27:32))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.7) +
-    scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour"))+ labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 1) +
+    scale_fill_brewer(type = "qual", palette = "Accent", aesthetics = c("fill", "colour"))+ 
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat")  +
+    theme(axis.title = element_blank(), axis.text = element_blank())
 ```
 
 
@@ -286,9 +295,11 @@ group <- typ_df %>% dplyr::filter(typv6_v1pl %in% c(100, 200, 300, 500))
     geom_sf(data=antarctica, fill="gray50", color= NA, size=0.25) + 
     coord_sf(datum = st_crs(3031)) +
     geom_tile(data = typ_df, aes(x = x, y = y), fill = "gray35", col = "gray35", lwd = 0.8) + 
-    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 0.9) +
+    geom_tile(data = group, aes(x=x, y=y, col= LCODE, fill = LCODE), lwd = 1) +
     scale_fill_manual(values = c("darkred","orangered","pink1","steelblue1")) + 
-    scale_colour_manual(values = c("darkred","orangered","pink1","steelblue1")) +labs(x = "x", y = "y", col = "habitat", fill = "habitat")
+    scale_colour_manual(values = c("darkred","orangered","pink1","steelblue1")) +
+    labs(x = "x", y = "y", col = "habitat", fill = "habitat")  +
+    theme(axis.title = element_blank(), axis.text = element_blank())
 ```
 
 ```{r GLboxA, echo=FALSE, message=FALSE, fig.height=6, fig.width=10, warning=FALSE}
