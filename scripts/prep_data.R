@@ -1,22 +1,26 @@
 
-library(rgdal)
+library(sp)
+library(sf)
 library(raster)
 library(tidyverse)
 
+source("./scripts/Helper_Functions.R", echo=TRUE)
+
 ### in GIS ###
-# union of ice-free polygon layers.
-# conversion to raster
-# raster pixel centroids (raster to point)
+# download raster union of ice-free polygon layers.https://data.aad.gov.au/metadata/AAS_4568_ice-free_rock_outcrop_union
+
+r <- raster("../Data/Base/rock_union1.tif")
+pix <- as(r, "SpatialPoints")
 
 ## Read in raster centroids ####
-pix <- readOGR("../Data/Abiotic_Layers/Points_100m", "centroids_100m_union")
+#pix1 <- readOGR("../Data/Abiotic_Layers/Points_100m", "centroids_100m_union")
 
 # environmental data ####
-abiotic_data <- extract_env_dat(coordinates(pix))
+abiotic_data <- extract_env_dat(coordinates(pix), datapath = "../Data/Abiotic_Layers")
 saveRDS(abiotic_data, "./data/abiotic_100m_extract_union.rds", compress = T)
 
-# SDM data ####
-biotic_data <- extract_biotic_dat(coordinates(pix), good_models)
+# Biotic data ####
+biotic_data <- extract_biotic_dat(coordinates(pix), gm(), datapath = "../Data/Species/SDM_interpolated")
 saveRDS(biotic_data, "./data/biotic_100m_extract_union.rds", compress = T)
 
 ## combine ####
