@@ -120,10 +120,19 @@ far_outliers <- function(v){
 }
 
 ##### DATA EXTRACTION ####
+# list of good model names 
+gm <- function(){
+  n <- list.files("../Data/Species/final_results", ".tif$", recursive = FALSE, full.names = FALSE)
+  bad_models <- c("adeliae.tif","Procellariiformes.tif","Poduromorpha.tif", "Grimmiales.tif",
+                  "Cyanobacteria.tif", "Tardigrada.tif","Marchantiophyta.tif","Lecideaceae.tif",
+                  "Umbilicariaceae.tif")
+  return(n[!n%in% bad_models])
+}
+
 # Extract abiotic data
-extract_env_dat <- function(xy){
+extract_env_dat <- function(xy, datapath){
   abiotic <- c("cloud", "wind", "meanTemp", "melt", "modT", "aspect", "elevation", "rock", "rugosity", "slope", "solar", "DDm5", "totPrecip")
-  l <- list.files("../Data/Abiotic_Layers", ".tif$", full.names = T)
+  l <- list.files(datapath, ".tif$", full.names = T)
   layers <- purrr::map(l, raster) %>% setNames(abiotic)
   
   abiotic_data <- purrr::map(layers, ~raster::extract(.x, xy))
@@ -132,9 +141,9 @@ extract_env_dat <- function(xy){
   return(abiotic_data)
 }
 # Extract biotic suitability data
-extract_biotic_dat <- function(xy, good_models){
-  l <- list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = T)
-  l <- l[list.files("../Data/Species/SDM_interpolated", ".tif$", recursive = F, full.names = F) %in% good_models]
+extract_biotic_dat <- function(xy, good_models, datapath){
+  l <- list.files(datapath, ".tif$", recursive = F, full.names = T)
+  l <- l[list.files(datapath, ".tif$", recursive = F, full.names = F) %in% good_models]
   layers <- raster::stack(l) 
   projection(layers) <- "+proj=stere +lat_0=-90 +lat_ts=-71 +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m
 +no_defs"
@@ -147,15 +156,15 @@ extract_biotic_dat <- function(xy, good_models){
 
 ##### ANALYSES ######
 #wrapper for fa() that chooses factor number based on importance of factor loadings
-factor_analysis <- function(dat, name, scale = TRUE){
-  message("Choosing number of factors")
+factor_analysis <- function(dat, name, nfact, scale = TRUE){
+  message("Preparing data")
   dat <- dat %>% na.omit()
   rn <- rownames(dat)
   if(scale) dat <- sapply(dat, function(x) normalize(x, method = "range", range = c(1,100)) %>% log()) %>% data.frame()
   
   #paranal <- paran(dat, cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
   #nfact <- paranal$Retained
-  nfact <- 5
+  
   message(paste("Factor analysis with", nfact, "factors"))  
   fa1 <- fa(dat, nfact, rotate = "varimax")
   saveRDS(fa1, paste0("./results/factor_analyses/fa_", name, ".rds"))
@@ -163,9 +172,12 @@ factor_analysis <- function(dat, name, scale = TRUE){
   #saveRDS(paranal, paste0("./results/factor_analyses/paran_", name, ".rds"))
   sc <- data.frame(fa1$scores)
   
+  message("Calculating categories and confidence")
+  #select best fit and calculate confidence as the ratio of best minus second-best fit to best minus worst fit. 
   consensus <- apply(sc, 1, which.max) %>% factor() %>% setNames(rn)
+  confidence <- apply(sc, 1, function(x) diff(sort(exp(x)))) %>% apply(2, function(x) last(x)/sum(x)) 
   
-  return(consensus)
+  return(data.frame(consensus, confidence))
 }
 
 # wrapper for predict function that cleans and scales the 
@@ -185,7 +197,7 @@ fapred <- function(data, cols, faobj, olddat){
 }
 
 # classifies unclassified pixels in column "var" with nearest neighbour
-classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 1000){
+classify_by_neighbours <- function(dat, var, maxdist = 1.5, res = 100){
   library(fields)
   
   v0 <- dat %>% filter(is.na({{ var }})) 
@@ -397,12 +409,12 @@ download_GBIF_all_species = function (species_list, path) {
   
   ## create variables
   skip.spp.list       = list()
-  GBIF.download.limit = 100000
+  GBIF.download.limit = 10000
   
   ## for every species in the list
   for(sp.n in species_list){
     
-    ## 1). First, check if the f*&%$*# file exists
+    ## 1). First, check if the file exists
     ## data\base\HIA_LIST\GBIF\SPECIES
     file_name = paste0(path,"/", sp.n, "_GBIF_records.RData")
     
@@ -442,11 +454,11 @@ download_GBIF_all_species = function (species_list, path) {
     }
     
     ## 4). Check how many records there are, and skip if there are over 200k
-    if (sampDat$meta$count > GBIF.download.limit) {
+    if (sampDat$meta$count > GBIF.download.limit) #{
       
       ## now append the species which had > 200k records to the skipped list
       print (paste ("Number of records > max for GBIF download via R (100,000)", sp.n))
-      max =  paste ("Number of records > 200,000 |", sp.n)
+      #max =  paste ("Number of records > 200,000 |", sp.n)
       
       
       ## and send a request to GBIF for download
@@ -456,7 +468,7 @@ download_GBIF_all_species = function (species_list, path) {
       # save(GBIF, file = paste(path, sp.n, "_GBIF_request.RData", sep = ""))
       # skip.spp.list <- c(skip.spp.list, max)
       
-    } else {
+ #   } else {
       
       ## 5). Download ALL records from GBIF
       message("Downloading GBIF records for ", sp.n, " using rgbif :: occ_data")
@@ -496,7 +508,7 @@ download_GBIF_all_species = function (species_list, path) {
       #save(GBIF, file = paste(path, sp.n, "_GBIF_records.RData", sep = ""))
       save(GBIF, file = file_name)
       
-    }
+ #   }
     
   }
   
