@@ -1,4 +1,5 @@
-library(rgdal)
+library(sf)
+library(terra)
 library(tidyverse)
 
 source('./scripts/Helper_Functions.R')
@@ -16,9 +17,10 @@ good_models <- gm()
 ##### Factor analysis L1 (abiotic variables) ####
 
 cldat <- v1 %>% dplyr::select(all_of(abiotic)) %>% na.omit()
+paranal <- paran(slice_sample(cldat, n = 10000), cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000)
 pdat <- data.frame(na.omit(v1 %>% dplyr::select(pixID, contains("coords"), all_of(abiotic))) %>% 
                      dplyr::select(pixID, contains("coords")), 
-                     factor_analysis(cldat, name = "L1", scale = 1, nfact = 5))
+                     factor_analysis(cldat, name = "L1", scale = 1, nfact = paranal$Retained)) # parallel analysis suggest 5 groups should be calculated
  
 #combine results
 v1 <- full_join(pdat, v1)
@@ -27,6 +29,11 @@ rownames(v1) <- paste(v1$x, v1$y, sep = "_")
 
 ###### Hierarchical Factor analysis L2 (SDM data) ############
 cldat <- v1 %>% split(.$consensus) %>% purrr::map(~dplyr::select(., all_of(good_models)))
+
+#parallel analysis
+paranalL2 <- map(1:length(cldat), ~cldat[[.x]] %>% na.omit() %>% paran(cfa = TRUE, graph = TRUE, color = TRUE, centile = 95, iterations = 5000) %>% 
+                   saveRDS(paste0("./results/factor_analyses_V6/paran_L2_E", .x, ".rds")))
+
 pdat <- map2(1:5, c(4,6,7,5,6), ~factor_analysis(cldat[[.x]], name = paste0("L2_E", .x), scale = TRUE, nfact = .y))
 v1 <- lapply(pdat, cbind) %>% reduce(rbind) %>% data.frame() %>% rownames_to_column() %>% tibble() %>% 
   setNames(c("pix", "consensus2", "confidence2")) %>% full_join(v1 %>% rownames_to_column("pix"), by = "pix")

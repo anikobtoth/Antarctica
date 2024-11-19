@@ -3,7 +3,7 @@ library(sp)
 library(fields)
 library(BBmisc)
 library(psych)
-
+library(paran)
 library(rlang)
 #library(gmp)
 
@@ -155,7 +155,7 @@ extract_biotic_dat <- function(xy, good_models, datapath){
 }
 
 ##### ANALYSES ######
-#wrapper for fa() that chooses factor number based on importance of factor loadings
+#wrapper for fa() that scales the data and saves the results to file
 factor_analysis <- function(dat, name, nfact, scale = TRUE){
   message("Preparing data")
   dat <- dat %>% na.omit()
