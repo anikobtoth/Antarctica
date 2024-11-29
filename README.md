@@ -1,5 +1,4 @@
 [![DOI](https://doi.org/10.5281/zenodo.11629115)](https://doi.org/10.5281/zenodo.11629115)
-[![DOI](https://doi.org/10.5281/zenodo.12737213)](https://doi.org/10.5281/zenodo.12737213)
 
 
 # Antarctica
@@ -24,5 +23,5 @@ The Antarctic Ecosystem Inventory v1.0, including spatial data and descriptions 
 and on Zenodo (https://doi.org/10.5281/zenodo.11629115, https://doi.org/10.5281/zenodo.12737213). 
 We expect the inventory to be an evolving data product, with successive versions of the inventory released in future as knowledge develops and new data become available. Labelling uses semantic versioning to indicate the change between versions. 
 
-##Licence
+#### Licence
 This software is licensed under a Creative Commons Attribution 4.0 International License. [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
