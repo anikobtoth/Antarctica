@@ -4,6 +4,8 @@ library(dplyr)
 library(readr)
 library(stringr)
 library(tidyr)
+library(forcats)
+library(cowplot)
 
 
 ## Summary of unit areas distribution in ACBRs V6
@@ -33,7 +35,7 @@ area_summary %>% filter(ACBR_NAME != "South Orkney Islands") %>%
    geom_col() + facet_wrap(~ACBR_NAME, scales = "free_y", ncol = 3) + 
    scale_fill_manual(values = c(viridis(5), "gray20", "dodgerblue"), 
                      labels = c("Mild lowlands", "Humid midlands", "Sunny/dry midlands", "High mountains", "High flatlands", "Geothermal", "Lakes")) + 
-   labs(fill = "Unit", y = "Area (square km)", x = "Habitat complex") + 
+   labs(fill = "Unit", y = "Area (square km)", x = "Habitat Complex") + 
    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), 
          panel.grid.minor = element_blank(), 
          panel.grid.major.x = element_blank())
@@ -53,7 +55,7 @@ p2 <- lake_hc %>% left_join(habitats, c("VALUE" = "Gridcode")) %>%
          habitat = ifelse(habitat %in% c("G1", "G2", "G3"), "G", habitat)) %>%
   ggplot(aes(x = LCODE, y = LAND/1000000, fill = habitat)) + geom_col() + 
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
-  labs(y = "Lake area in square km", x = "habitat complex", fill = "Tier 1") + 
+  labs(y = "Lake area in square km", x = "Habitat Complex", fill = "Tier 1") + 
   scale_fill_manual(values = c(viridis(5), "gray20"))
 
 plot_grid(p1, p2, ncol = 2, labels = c("a", "b"), rel_widths = c(2,3), align = "h")
@@ -194,7 +196,7 @@ ovl_area %>% pivot_longer(contains("VALUE_"), names_to = "habitat", values_to = 
   ggplot(aes(x = unit, fill = as.factor(str_sub(unit, 1,2)), y = area)) + geom_col() + 
   scale_fill_manual(values = c(viridis(5))) +
   facet_grid(~superunit, scales = "free", space = "free")+
-  labs(fill = "Tier 1", y = "Area (square km)", x = "Habitat complex") +
+  labs(fill = "Tier 1", y = "Area (square km)", x = "Habitat Complex") +
   theme(axis.text.x  = element_text(angle = 90, vjust = 0.3), 
         panel.grid.minor = element_blank(), 
         panel.grid.major.x = element_blank()) 
