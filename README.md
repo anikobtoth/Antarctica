@@ -1,3 +1,7 @@
+[![DOI](https://doi.org/10.5281/zenodo.11629115)](https://doi.org/10.5281/zenodo.11629115)
+[![DOI](https://doi.org/10.5281/zenodo.12737213)](https://doi.org/10.5281/zenodo.12737213)
+
+
 # Antarctica
 Data and code used to produce the Antarctic Ecosystem Inventory:
 
@@ -18,4 +22,7 @@ The Final data products are also freely available:
 The Antarctic Ecosystem Inventory v1.0, including spatial data and descriptions for Major Environmental Groups and Habitat Complexes, is available via the Australian Antarctic Data Centre 
 (https://data.aad.gov.au/metadata/AAS_4568_The_Antarctic_Ecosystem_Inventory)   
 and on Zenodo (https://doi.org/10.5281/zenodo.11629115, https://doi.org/10.5281/zenodo.12737213). 
-Data is released under a Creative Commons Attribution 4.0 International licence enabling reuse with attribution via a citation of this descriptor. We expect the inventory to be an evolving data product, with successive versions of the inventory released in future as knowledge develops and new data become available. Labelling uses semantic versioning to indicate the change between versions. 
+We expect the inventory to be an evolving data product, with successive versions of the inventory released in future as knowledge develops and new data become available. Labelling uses semantic versioning to indicate the change between versions. 
+
+##Licence
+This software is licensed under a Creative Commons Attribution 4.0 International License. [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/)
